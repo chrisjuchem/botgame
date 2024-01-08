@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+
+<body style="margin: 0px;">
+  <script type="module">
+    import init from './pkg/botgame.js'
+    init().catch((error) => {
+      if (!error.message.startsWith("Using exceptions for control flow, don't mind me. This isn't actually an error!")) {
+        throw error;
+      }
+    }).then(module => {
+      console.log(module);
+      module.run_game();
+    });
+  </script>
+  <div style="width:100vw; height:100vh; overflow:hidden;">
+    <canvas id="game-canvas" width="1280" height="720"></canvas>
+  </div>
+</body>
+
+</html>
