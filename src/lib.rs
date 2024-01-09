@@ -1,3 +1,7 @@
+#![feature(debug_closure_helpers)]
+
+mod cards;
+
 use std::f32::consts::PI;
 
 use bevy::prelude::*;
@@ -5,6 +9,7 @@ use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub fn run_game() {
+    println!("{:?}", cards::deck());
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
