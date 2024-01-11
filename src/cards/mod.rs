@@ -1,16 +1,21 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::{
+    Debug,
+    Formatter,
+};
 
-#[derive(Debug)]
+use bevy::utils::Uuid;
+
+#[derive(Debug, Clone)]
 pub struct Card {
-    name: &'static str,
-    summon_cost: Cost,
-    hp: u32,
-    abilities: Vec<Ability>, // name + abilityData ??
-    max_energy: u32,
-    energy_regen: u32,
+    pub name: &'static str,
+    pub summon_cost: Cost,
+    pub hp: u32,
+    pub abilities: Vec<Ability>, // name + abilityData ??
+    pub max_energy: u32,
+    pub energy_regen: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Ability {
     Activated {
         effect: Effect,
@@ -38,13 +43,14 @@ impl Cost {
     const FREE: Cost = Cost { energy: 0 };
 }
 
-trait DerivedCostFunc: Fn(&Effect) -> Cost {
+trait DerivedCostFunc: Sync + Fn(&Effect) -> Cost {
     fn fn_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
 }
-impl<T> DerivedCostFunc for T where T: Fn(&Effect) -> Cost {}
+impl<T> DerivedCostFunc for T where T: Sync + Fn(&Effect) -> Cost {}
 
+#[derive(Clone)]
 pub enum AbilityCost {
     Static { cost: Cost },
     Derived { func: &'static dyn DerivedCostFunc },
@@ -69,48 +75,40 @@ impl Debug for AbilityCost {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Effect {
-    Attack {
-        damage: u32,
-        effect_type: EffectType,
-    },
-    GrantAbility {
-        ability: Box<Ability>,
-    },
-    SummonCard {
-        card: Card,
-    },
+    Attack { damage: u32, effect_type: EffectType },
+    GrantAbility { ability: Box<Ability> },
+    SummonCard { card: Card },
     // SharableEnergy {
     //     factor: f32,
     // },
     // Cloaking {
     //
     // },
-    MultipleEffects {
-        effects: Vec<Effect>,
-    },
+    MultipleEffects { effects: Vec<Effect> },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum PassiveEffect {
-    DamageResistance {
-        effect_type: EffectType,
-        factor: f32,
-    },
-    WhenHit {
-        effect: Effect,
-    },
+    DamageResistance { effect_type: EffectType, factor: f32 },
+    WhenHit { effect: Effect },
     // ModifySummonCost
     // ModifyAbilityCost ??
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum EffectType {
     Physical,
     Explosion,
     Fire,
     Electrical,
+}
+
+#[derive(Debug)]
+pub enum Target {
+    Players(Vec<Uuid>),
+    Cards(Vec<Uuid>),
 }
 
 pub fn deck() -> Card {
@@ -120,13 +118,8 @@ pub fn deck() -> Card {
             summon_cost: Cost { energy: 3 },
             hp: 8,
             abilities: vec![Ability::Activated {
-                effect: Effect::Attack {
-                    damage: 3,
-                    effect_type: EffectType::Fire,
-                },
-                cost: AbilityCost::Static {
-                    cost: Cost { energy: 2 },
-                },
+                effect: Effect::Attack { damage: 3, effect_type: EffectType::Fire },
+                cost: AbilityCost::Static { cost: Cost { energy: 2 } },
             }],
             max_energy: 3,
             energy_regen: 1,
@@ -136,10 +129,7 @@ pub fn deck() -> Card {
             summon_cost: Cost { energy: 5 },
             hp: 20,
             abilities: vec![Ability::Activated {
-                effect: Effect::Attack {
-                    damage: 1,
-                    effect_type: EffectType::Physical,
-                },
+                effect: Effect::Attack { damage: 1, effect_type: EffectType::Physical },
                 cost: AbilityCost::Static { cost: Cost::FREE },
             }],
             max_energy: 0,
