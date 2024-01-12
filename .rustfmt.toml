@@ -1,0 +1,8 @@
+imports_granularity="Crate"
+group_imports="StdExternalCrate"
+#imports_layout="Vertical"
+
+overflow_delimited_expr=true
+match_block_trailing_comma=true
+format_strings=true
+use_small_heuristics="Max"
