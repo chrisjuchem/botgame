@@ -111,16 +111,13 @@ fn update(
                 NetworkMessage::JoinMatchmakingQueue(JoinMatchmakingQueue {
                     deck,
                     player_name,
-                }) => {
-                    println!("q");
-                    match mm_queue.0.entry(*client_id) {
-                        Entry::Vacant(e) => {
-                            e.insert(QueueInfo { player_name, deck: deck.clone() });
-                        },
-                        Entry::Occupied(_) => {
-                            server.send_error(client_id, "already in queue".to_string());
-                        },
-                    }
+                }) => match mm_queue.0.entry(*client_id) {
+                    Entry::Vacant(e) => {
+                        e.insert(QueueInfo { player_name, deck: deck.clone() });
+                    },
+                    Entry::Occupied(_) => {
+                        server.send_error(client_id, "already in queue".to_string());
+                    },
                 },
                 NetworkMessage::ProtocolError(ProtocolError { msg }) => {
                     log::error!("ProtocolError from client {client_id}: {msg}")

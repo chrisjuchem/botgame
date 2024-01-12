@@ -22,13 +22,13 @@ impl Plugin for ClientPlugin {
         app.add_plugins((RenetClientPlugin, NetcodeClientPlugin));
         app.insert_resource(RenetClient::new(ConnectionConfig::default()));
 
+        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
         let authentication = ClientAuthentication::Unsecure {
             server_addr: "127.0.0.1:5000".parse().unwrap(),
-            client_id: 0,
+            client_id: socket.local_addr().unwrap().port() as u64,
             user_data: None,
             protocol_id: 0,
         };
-        let socket = UdpSocket::bind("127.0.0.1:6001").unwrap();
         let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
         let transport = NetcodeClientTransport::new(current_time, authentication, socket).unwrap();
 

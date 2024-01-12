@@ -12,6 +12,7 @@ use crate::{
 pub struct MatchSimPlugin;
 impl Plugin for MatchSimPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugins(Aery);
         init_events(app);
         app.add_systems(Update, start_match);
         app.add_systems(Update, effects);
@@ -122,11 +123,11 @@ fn start_match(
     // mut turns: EventWriter<NewTurnEvent>,
 ) {
     for StartMatchEvent { match_id, players } in e.read() {
+        info!("match {match_id:?} started");
         for (player_id, card) in players.iter() {
             let p = commands.spawn((*match_id, *player_id)).id();
             commands.spawn_card(card.clone(), *match_id, p);
             // effects.
-            println!("match {match_id:?} started")
         }
     }
 }
