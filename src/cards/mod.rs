@@ -1,13 +1,15 @@
-use std::fmt::{
-    Debug,
-    Formatter,
+use std::fmt::{Debug, Formatter};
+
+use serde::{
+    de::{Error, Visitor},
+    Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use bevy::utils::Uuid;
+use crate::utils::Uuid;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Card {
-    pub name: &'static str,
+    pub name: String,
     pub summon_cost: Cost,
     pub hp: u32,
     pub abilities: Vec<Ability>, // name + abilityData ??
@@ -15,7 +17,7 @@ pub struct Card {
     pub energy_regen: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Ability {
     Activated {
         effect: Effect,
@@ -25,35 +27,65 @@ pub enum Ability {
     Passive {
         passive_effect: PassiveEffect,
     },
+    Other,
 }
 impl Ability {
     fn cost(&self) -> Cost {
         match self {
             Ability::Activated { effect, cost } => cost.get(effect),
-            Ability::Passive { .. } => Cost::FREE,
+            Ability::Other | Ability::Passive { .. } => Cost::FREE,
         }
     }
 }
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Cost {
-    energy: u32,
+    pub(crate) energy: u32,
 }
 impl Cost {
     const FREE: Cost = Cost { energy: 0 };
 }
 
-trait DerivedCostFunc: Sync + Fn(&Effect) -> Cost {
+pub trait DerivedCostFunc: Sync + Fn(&Effect) -> Cost {
     fn fn_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
 }
+impl dyn DerivedCostFunc {
+    fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+        ser.serialize_str(self.fn_name())
+    }
+    fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<&'static Self, D::Error> {
+        struct DerivedCostFuncVisitor;
+        impl Visitor<'_> for DerivedCostFuncVisitor {
+            type Value = &'static dyn DerivedCostFunc;
+
+            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+                formatter.write_str("the name of a function to use to derive costs")
+            }
+
+            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                Ok(&summon_cost) // TODO
+            }
+        }
+
+        de.deserialize_str(DerivedCostFuncVisitor)
+    }
+}
 impl<T> DerivedCostFunc for T where T: Sync + Fn(&Effect) -> Cost {}
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum AbilityCost {
-    Static { cost: Cost },
-    Derived { func: &'static dyn DerivedCostFunc },
+    Static {
+        cost: Cost,
+    },
+    Derived {
+        #[serde(with = "DerivedCostFunc")]
+        func: &'static dyn DerivedCostFunc,
+    },
 }
 impl AbilityCost {
     fn get(&self, effect: &Effect) -> Cost {
@@ -75,7 +107,7 @@ impl Debug for AbilityCost {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Effect {
     Attack { damage: u32, effect_type: EffectType },
     GrantAbility { ability: Box<Ability> },
@@ -89,7 +121,7 @@ pub enum Effect {
     MultipleEffects { effects: Vec<Effect> },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PassiveEffect {
     DamageResistance { effect_type: EffectType, factor: f32 },
     WhenHit { effect: Effect },
@@ -97,7 +129,7 @@ pub enum PassiveEffect {
     // ModifyAbilityCost ??
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum EffectType {
     Physical,
     Explosion,
@@ -105,7 +137,7 @@ pub enum EffectType {
     Electrical,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Target {
     Players(Vec<Uuid>),
     Cards(Vec<Uuid>),
@@ -114,7 +146,7 @@ pub enum Target {
 pub fn deck() -> Card {
     let deck = vec![
         Card {
-            name: "bot 1",
+            name: "bot 1".to_string(),
             summon_cost: Cost { energy: 3 },
             hp: 8,
             abilities: vec![Ability::Activated {
@@ -125,7 +157,7 @@ pub fn deck() -> Card {
             energy_regen: 1,
         },
         Card {
-            name: "bot 2",
+            name: "bot 2".to_string(),
             summon_cost: Cost { energy: 5 },
             hp: 20,
             abilities: vec![Ability::Activated {
@@ -138,7 +170,7 @@ pub fn deck() -> Card {
     ];
 
     Card {
-        name: "Command Center",
+        name: "Command Center".to_string(),
         summon_cost: Cost::FREE,
         hp: 50,
         abilities: deck

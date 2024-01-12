@@ -1,20 +1,18 @@
 use aery::prelude::*;
-use bevy::{
-    prelude::*,
-    utils::Uuid,
-};
+use bevy::prelude::*;
 use bevy_mod_index::prelude::*;
 use extension_trait::extension_trait;
+use serde::{Deserialize, Serialize};
 
-use crate::cards::{
-    Card,
-    Effect,
-    Target,
+use crate::{
+    cards::{Card, Effect, Target},
+    utils::Uuid,
 };
 
 pub struct MatchSimPlugin;
 impl Plugin for MatchSimPlugin {
     fn build(&self, app: &mut App) {
+        init_events(app);
         app.add_systems(Update, start_match);
         app.add_systems(Update, effects);
         app.add_systems(Update, next_turn);
@@ -24,11 +22,11 @@ impl Plugin for MatchSimPlugin {
 
 // ====== Match Components/Relations ======
 
-#[derive(Component, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct MatchId(Uuid);
 impl MatchId {
     pub fn new() -> Self {
-        Self(Uuid::new_v4())
+        Self(Uuid::new())
     }
 }
 
@@ -43,11 +41,11 @@ impl IndexInfo for MatchIndex {
     }
 }
 
-#[derive(Component, Copy, Clone, Eq, PartialEq, Hash)]
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct PlayerId(Uuid);
 impl PlayerId {
     pub fn new() -> Self {
-        Self(Uuid::new_v4())
+        Self(Uuid::new())
     }
 }
 
@@ -87,7 +85,7 @@ struct Energy {
 #[derive(Event)]
 pub struct StartMatchEvent {
     pub match_id: MatchId,
-    pub players: Vec<(PlayerId, Card)>,
+    pub players: Vec<(PlayerId, Card)>, //remove card, effect instead
 }
 
 #[derive(Event)]
@@ -108,19 +106,27 @@ pub struct CleanupMatchEvent {
     match_id: MatchId,
 }
 
+fn init_events(app: &mut App) {
+    app.add_event::<StartMatchEvent>();
+    app.add_event::<EffectEvent>();
+    app.add_event::<NewTurnEvent>();
+    app.add_event::<CleanupMatchEvent>();
+}
+
 // ====== Systems ======
 
 fn start_match(
     mut commands: Commands,
     mut e: EventReader<StartMatchEvent>,
-    mut effects: EventWriter<EffectEvent>,
-    mut turns: EventWriter<NewTurnEvent>,
+    // mut effects: EventWriter<EffectEvent>,
+    // mut turns: EventWriter<NewTurnEvent>,
 ) {
     for StartMatchEvent { match_id, players } in e.read() {
         for (player_id, card) in players.iter() {
             let p = commands.spawn((*match_id, *player_id)).id();
             commands.spawn_card(card.clone(), *match_id, p);
-            effects.
+            // effects.
+            println!("match {match_id:?} started")
         }
     }
 }
