@@ -16,9 +16,12 @@ use bevy_renet::{
 use extension_trait::extension_trait;
 
 use crate::{
-    cards::Card,
-    match_sim::{MatchId, PlayerId, StartMatchEvent},
-    network::messages::{JoinMatchmakingQueue, MatchStarted, NetworkMessage, ProtocolError},
+    cards::{Card, Effect, Target},
+    match_sim::{EffectEvent, MatchId, PlayerId, StartMatchEvent},
+    network::messages::{
+        EffectMessage, JoinMatchmakingQueueMessage, MatchStartedMessage, NetworkMessage,
+        ProtocolErrorMessage,
+    },
 };
 
 pub struct ServerPlugin;
@@ -41,17 +44,17 @@ impl Plugin for ServerPlugin {
 
         app.insert_resource(ConnectedClients::default());
         app.insert_resource(MMQueue::default());
-        app.insert_resource(PlayerMap::default());
-        app.add_systems(Update, update);
-        app.add_systems(Update, matchmaking.run_if(resource_changed::<MMQueue>()));
-        app.add_systems(Update, send_match_start);
+        app.insert_resource(MatchClientMap::default());
+        app.add_systems(First, read_messages);
+        app.add_systems(PreUpdate, matchmaking.run_if(resource_changed::<MMQueue>()));
+        app.add_systems(Update, (send_match_start, send_effects).chain());
     }
 }
 
 #[derive(Resource, Default)]
 struct ConnectedClients(HashMap<ClientId, Option<PlayerId>>);
 #[derive(Resource, Default)]
-struct PlayerMap(HashMap<PlayerId, ClientId>);
+struct MatchClientMap(HashMap<MatchId, Vec<ClientId>>);
 
 #[derive(Resource, Default)]
 struct MMQueue(HashMap<ClientId, QueueInfo>);
@@ -82,11 +85,11 @@ pub impl ServerExt for RenetServer {
     }
     fn send_error(&mut self, client_id: &ClientId, msg: impl std::fmt::Display) {
         log::error!("ProtocolError sent to client {client_id}: {msg}");
-        self.send(client_id, ProtocolError { msg: msg.to_string() })
+        self.send(client_id, ProtocolErrorMessage { msg: msg.to_string() })
     }
 }
 
-fn update(
+fn read_messages(
     mut server_events: EventReader<ServerEvent>,
     mut server: ResMut<RenetServer>,
     mut clients: ResMut<ConnectedClients>,
@@ -108,7 +111,7 @@ fn update(
     for (client_id, match_id) in clients.0.iter() {
         while let Some(msg) = server.next(client_id) {
             match msg {
-                NetworkMessage::JoinMatchmakingQueue(JoinMatchmakingQueue {
+                NetworkMessage::JoinMatchmakingQueueMessage(JoinMatchmakingQueueMessage {
                     deck,
                     player_name,
                 }) => match mm_queue.0.entry(*client_id) {
@@ -119,7 +122,7 @@ fn update(
                         server.send_error(client_id, "already in queue".to_string());
                     },
                 },
-                NetworkMessage::ProtocolError(ProtocolError { msg }) => {
+                NetworkMessage::ProtocolErrorMessage(ProtocolErrorMessage { msg }) => {
                     log::error!("ProtocolError from client {client_id}: {msg}")
                 },
                 other => {
@@ -133,7 +136,8 @@ fn update(
 fn matchmaking(
     mut mm_queue: ResMut<MMQueue>,
     mut start_match: EventWriter<StartMatchEvent>,
-    mut player_map: ResMut<PlayerMap>,
+    mut effects: EventWriter<EffectEvent>,
+    mut match_map: ResMut<MatchClientMap>,
     mut clients: ResMut<ConnectedClients>,
 ) {
     debug!("{} players in queue", mm_queue.0.len());
@@ -142,35 +146,62 @@ fn matchmaking(
         return;
     }
 
+    let match_id = MatchId::new();
+
     let mut i = mm_queue.0.drain();
-    let players = i
+    let mut players = i
         .by_ref()
         .take(2)
         .map(|(client_id, info)| {
             let pid = PlayerId::new();
             clients.0.insert(client_id, Some(pid));
-            player_map.0.insert(pid, client_id);
-            (pid, info.deck)
+            match_map.0.entry(match_id).or_insert(vec![]).push(client_id);
+            (pid, Some(info.deck))
         })
-        .collect();
+        .collect::<Vec<_>>();
     *mm_queue = MMQueue(i.collect());
 
-    start_match.send(StartMatchEvent { match_id: MatchId::new(), players });
+    for (pid, card) in &mut players {
+        effects.send(EffectEvent {
+            match_id,
+            effect: Effect::SummonCard { card: card.take().unwrap() },
+            target: Target::Players(vec![*pid]),
+        });
+    }
+
+    let players = players.into_iter().map(|(pid, _)| pid).collect();
+    start_match.send(StartMatchEvent { match_id, players });
 }
 
 fn send_match_start(
     mut start_match: EventReader<StartMatchEvent>,
     mut server: ResMut<RenetServer>,
-    player_map: Res<PlayerMap>,
+    client_map: Res<MatchClientMap>,
+    player_map: Res<ConnectedClients>,
 ) {
     for StartMatchEvent { match_id, players } in start_match.read() {
-        for (pid, _) in players {
-            let client_id = player_map.0.get(pid).unwrap();
-            server.send(client_id, MatchStarted {
+        for client_id in client_map.0.get(match_id).unwrap() {
+            server.send(client_id, MatchStartedMessage {
                 match_id: *match_id,
                 players: players.clone(),
-                you: *pid,
+                you: player_map.0.get(client_id).unwrap().unwrap(),
             })
+        }
+    }
+}
+
+fn send_effects(
+    mut effects: EventReader<EffectEvent>,
+    mut server: ResMut<RenetServer>,
+    client_map: Res<MatchClientMap>,
+) {
+    for EffectEvent { match_id, effect, target } in effects.read() {
+        for client_id in client_map.0.get(match_id).unwrap() {
+            server.send(client_id, EffectMessage {
+                match_id: *match_id,
+                effect: effect.clone(),
+                target: target.clone(),
+            });
         }
     }
 }

@@ -15,7 +15,7 @@ use wasm_bindgen::prelude::*;
 use crate::{
     match_sim::MatchSimPlugin,
     network::{
-        messages::JoinMatchmakingQueue, ClientExt, ClientPlugin, NwDebugPlugin, ServerPlugin,
+        messages::JoinMatchmakingQueueMessage, ClientExt, ClientPlugin, NwDebugPlugin, ServerPlugin,
     },
 };
 
@@ -67,7 +67,7 @@ pub fn run_client() {
     app.add_plugins((ClientPlugin, MatchSimPlugin, NwDebugPlugin));
 
     app.add_systems(Startup, |mut c: ResMut<RenetClient>| {
-        c.send(JoinMatchmakingQueue { player_name: "p1".to_string(), deck: cards::deck() })
+        c.send(JoinMatchmakingQueueMessage { player_name: "p1".to_string(), deck: cards::deck() })
     });
     app.run();
 }

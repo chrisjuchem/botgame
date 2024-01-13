@@ -14,9 +14,7 @@ impl Plugin for MatchSimPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(Aery);
         init_events(app);
-        app.add_systems(Update, start_match);
-        app.add_systems(Update, effects);
-        app.add_systems(Update, next_turn);
+        app.add_systems(Update, (start_match, apply_deferred, effects, next_turn).chain());
         app.add_systems(Update, cleanup_match);
     }
 }
@@ -83,26 +81,26 @@ struct Energy {
 
 // ====== Events ======
 
-#[derive(Event)]
+#[derive(Event, Clone)]
 pub struct StartMatchEvent {
     pub match_id: MatchId,
-    pub players: Vec<(PlayerId, Card)>, //remove card, effect instead
+    pub players: Vec<PlayerId>,
 }
 
-#[derive(Event)]
+#[derive(Event, Clone)]
 pub struct EffectEvent {
     pub match_id: MatchId,
     pub effect: Effect,
     pub target: Target,
 }
 
-#[derive(Event)]
+#[derive(Event, Clone)]
 pub struct NewTurnEvent {
     pub match_id: MatchId,
     pub next_player: PlayerId,
 }
 
-#[derive(Event)]
+#[derive(Event, Clone)]
 pub struct CleanupMatchEvent {
     match_id: MatchId,
 }
@@ -116,18 +114,11 @@ fn init_events(app: &mut App) {
 
 // ====== Systems ======
 
-fn start_match(
-    mut commands: Commands,
-    mut e: EventReader<StartMatchEvent>,
-    // mut effects: EventWriter<EffectEvent>,
-    // mut turns: EventWriter<NewTurnEvent>,
-) {
+fn start_match(mut commands: Commands, mut e: EventReader<StartMatchEvent>) {
     for StartMatchEvent { match_id, players } in e.read() {
         info!("match {match_id:?} started");
-        for (player_id, card) in players.iter() {
+        for player_id in players.iter() {
             let p = commands.spawn((*match_id, *player_id)).id();
-            commands.spawn_card(card.clone(), *match_id, p);
-            // effects.
         }
     }
 }
@@ -156,6 +147,7 @@ fn effects(
     mut player_index: Index<PlayerIndex>,
 ) {
     for EffectEvent { match_id, effect, target } in e.read() {
+        debug!("effect {effect:?} with targets {target:?}");
         match effect {
             Effect::SummonCard { card } => {
                 let Target::Players(players) = target else {
@@ -164,7 +156,7 @@ fn effects(
 
                 for p in players {
                     // todo: put id struct in target
-                    let mut es = player_index.lookup(&PlayerId(*p));
+                    let mut es = player_index.lookup(p);
                     // todo: lookup_single
                     assert_eq!(es.len(), 1);
                     let e = es.drain().next().expect("should only be on player with id");

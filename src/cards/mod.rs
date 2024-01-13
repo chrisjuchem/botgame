@@ -5,7 +5,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::utils::Uuid;
+use crate::{match_sim::PlayerId, utils::Uuid};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Card {
@@ -137,9 +137,9 @@ pub enum EffectType {
     Electrical,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Target {
-    Players(Vec<Uuid>),
+    Players(Vec<PlayerId>),
     Cards(Vec<Uuid>),
 }
 

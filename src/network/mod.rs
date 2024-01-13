@@ -8,27 +8,23 @@ pub use server::{ServerExt, ServerPlugin};
 pub struct NwDebugPlugin;
 impl bevy::app::Plugin for NwDebugPlugin {
     fn build(&self, app: &mut bevy::app::App) {
-        // use bevy::prelude::*;
-        //
+        use bevy::prelude::*;
+
+        use crate::match_sim::MatchId;
         // use crate::{
         //     cards::*,
         //     network::messages::{JoinMatchmakingQueue, NetworkMessage},
         // };
 
-        // app.add_systems(Startup, || {
-        //     let msg = JoinMatchmakingQueue {
-        //         player_name: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA".to_string(),
-        //         deck: Card {
-        //             name: "BBBBBBBBBBBBBBBBBB".to_string(),
-        //             summon_cost: Cost { energy: 0xEEEEEEEE },
-        //             hp: 0xDDDDDDDD,
-        //             abilities: vec![],
-        //             max_energy: 0xCCCCCCCC,
-        //             energy_regen: 0xBBBBBBBB,
-        //         },
-        //     };
-        //
-        //     info!("{:?}", bincode::serialize(&NetworkMessage::JoinMatchmakingQueue(msg)).unwrap())
-        // });
+        app.add_systems(
+            Update,
+            |mut last_count: Local<usize>, all: Query<Entity, With<MatchId>>| {
+                let count = all.iter().count();
+                if *last_count != count {
+                    *last_count = count;
+                    debug!("{} match entities", count);
+                }
+            },
+        );
     }
 }

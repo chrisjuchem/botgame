@@ -12,8 +12,8 @@ use bevy_renet::{
 use extension_trait::extension_trait;
 
 use crate::{
-    match_sim::StartMatchEvent,
-    network::messages::{NetworkMessage, ProtocolError},
+    match_sim::{EffectEvent, StartMatchEvent},
+    network::messages::{EffectMessage, NetworkMessage, ProtocolErrorMessage},
 };
 
 pub struct ClientPlugin;
@@ -34,7 +34,7 @@ impl Plugin for ClientPlugin {
 
         app.insert_resource(transport);
 
-        app.add_systems(Update, updates);
+        app.add_systems(First, read_messages);
     }
 }
 
@@ -60,19 +60,25 @@ pub impl ClientExt for RenetClient {
     }
     fn send_error(&mut self, msg: impl std::fmt::Display) {
         log::error!("ProtocolError sent to server: {msg}");
-        self.send(ProtocolError { msg: msg.to_string() })
+        self.send(ProtocolErrorMessage { msg: msg.to_string() })
     }
 }
 
-fn updates(mut client: ResMut<RenetClient>, mut start_match: EventWriter<StartMatchEvent>) {
+fn read_messages(
+    mut client: ResMut<RenetClient>,
+    mut start_match: EventWriter<StartMatchEvent>,
+    mut effects: EventWriter<EffectEvent>,
+) {
     while let Some(msg) = client.next_msg() {
         match msg {
-            NetworkMessage::MatchStarted(data) => {
+            NetworkMessage::MatchStartedMessage(data) => {
                 // insert resource => data.you
                 start_match.send(StartMatchEvent { match_id: data.match_id, players: data.players })
             },
-
-            NetworkMessage::ProtocolError(ProtocolError { msg }) => {
+            NetworkMessage::EffectMessage(EffectMessage { match_id, effect, target }) => {
+                effects.send(EffectEvent { match_id, effect, target });
+            },
+            NetworkMessage::ProtocolErrorMessage(ProtocolErrorMessage { msg }) => {
                 log::error!("ProtocolError from server: {msg}")
             },
             other => {
