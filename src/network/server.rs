@@ -139,6 +139,7 @@ fn matchmaking(
     mut effects: EventWriter<EffectEvent>,
     mut match_map: ResMut<MatchClientMap>,
     mut clients: ResMut<ConnectedClients>,
+    mut rand: Local<u32>,
 ) {
     debug!("{} players in queue", mm_queue.0.len());
 
@@ -162,10 +163,12 @@ fn matchmaking(
     *mm_queue = MMQueue(i.collect());
 
     for (pid, card) in &mut players {
+        *rand = ((*rand + 7) * 7) % 5;
+
         effects.send(EffectEvent {
             match_id,
             effect: Effect::SummonCard { card: card.take().unwrap() },
-            target: Target::Players(vec![*pid]),
+            targets: vec![Target { player: *pid, location: UVec2::new(0, *rand) }],
         });
     }
 
@@ -195,12 +198,12 @@ fn send_effects(
     mut server: ResMut<RenetServer>,
     client_map: Res<MatchClientMap>,
 ) {
-    for EffectEvent { match_id, effect, target } in effects.read() {
+    for EffectEvent { match_id, effect, targets } in effects.read() {
         for client_id in client_map.0.get(match_id).unwrap() {
             server.send(client_id, EffectMessage {
                 match_id: *match_id,
                 effect: effect.clone(),
-                target: target.clone(),
+                targets: targets.clone(),
             });
         }
     }

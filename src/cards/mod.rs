@@ -1,5 +1,8 @@
+pub mod mesh;
+
 use std::fmt::{Debug, Formatter};
 
+use bevy::math::UVec2;
 use serde::{
     de::{Error, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -138,9 +141,9 @@ pub enum EffectType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum Target {
-    Players(Vec<PlayerId>),
-    Cards(Vec<Uuid>),
+pub struct Target {
+    pub(crate) player: PlayerId,
+    pub(crate) location: UVec2,
 }
 
 pub fn deck() -> Card {

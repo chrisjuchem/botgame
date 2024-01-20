@@ -5,7 +5,8 @@ use extension_trait::extension_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards::{Card, Effect, Target},
+    cards::{mesh::NeedsMesh, Card, Effect, Target},
+    ui::StatsPanel,
     utils::Uuid,
 };
 
@@ -60,24 +61,30 @@ impl IndexInfo for PlayerIndex {
 }
 
 #[derive(Component)]
-struct CurrentTurn;
+pub struct CurrentTurn;
+
+#[derive(Resource)]
+pub struct Us(pub PlayerId);
 
 // ====== Card Components/Relations ======
 
 #[derive(Relation)]
-struct OwnedBy;
+pub struct OwnedBy;
 
 #[derive(Component)]
-struct BaseCard(Card);
+pub struct BaseCard(pub Card);
 
 #[derive(Component)]
-struct Health(u32);
+pub struct Health(pub u32);
 
 #[derive(Component)]
-struct Energy {
-    current: u32,
-    max: u32,
+pub struct Energy {
+    pub current: u32,
+    pub max: u32,
 }
+
+#[derive(Component)]
+pub struct GridLocation(pub UVec2);
 
 // ====== Events ======
 
@@ -91,7 +98,7 @@ pub struct StartMatchEvent {
 pub struct EffectEvent {
     pub match_id: MatchId,
     pub effect: Effect,
-    pub target: Target,
+    pub targets: Vec<Target>,
 }
 
 #[derive(Event, Clone)]
@@ -146,21 +153,17 @@ fn effects(
     mut e: EventReader<EffectEvent>,
     mut player_index: Index<PlayerIndex>,
 ) {
-    for EffectEvent { match_id, effect, target } in e.read() {
-        debug!("effect {effect:?} with targets {target:?}");
+    for EffectEvent { match_id, effect, targets } in e.read() {
+        debug!("effect {effect:?} with targets {targets:?}");
         match effect {
             Effect::SummonCard { card } => {
-                let Target::Players(players) = target else {
-                    panic!("only players can spawn cards")
-                };
-
-                for p in players {
+                for t in targets {
                     // todo: put id struct in target
-                    let mut es = player_index.lookup(p);
+                    let mut es = player_index.lookup(&t.player);
                     // todo: lookup_single
                     assert_eq!(es.len(), 1);
                     let e = es.drain().next().expect("should only be on player with id");
-                    commands.spawn_card(card.clone(), *match_id, e)
+                    commands.spawn_card(card.clone(), *match_id, e, t.location)
                 }
             },
             _ => unimplemented!(),
@@ -187,13 +190,19 @@ fn cleanup_match(
 
 #[extension_trait]
 impl CommandExts for Commands<'_, '_> {
-    fn spawn_card(&mut self, card: Card, mid: MatchId, owner: Entity) {
-        self.spawn((
-            mid,
-            Health(card.hp),
-            Energy { current: 1, max: card.max_energy },
-            BaseCard(card),
-        ))
-        .set::<OwnedBy>(owner);
+    fn spawn_card(&mut self, card: Card, mid: MatchId, owner: Entity, loc: UVec2) {
+        let card_id = self
+            .spawn((
+                mid,
+                Health(card.hp),
+                Energy { current: 1, max: card.max_energy },
+                BaseCard(card),
+                (GridLocation(loc), SpatialBundle::default()),
+                NeedsMesh,
+            ))
+            .set::<OwnedBy>(owner)
+            .id();
+
+        self.spawn((TextBundle::default(), StatsPanel(card_id)));
     }
 }

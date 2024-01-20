@@ -33,7 +33,7 @@ pub struct MatchStartedMessage {
 pub struct EffectMessage {
     pub match_id: MatchId,
     pub effect: Effect,
-    pub target: Target,
+    pub targets: Vec<Target>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
