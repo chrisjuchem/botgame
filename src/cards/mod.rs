@@ -8,7 +8,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::{match_sim::PlayerId, utils::Uuid};
+use crate::match_sim::PlayerId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Card {

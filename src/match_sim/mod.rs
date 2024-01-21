@@ -6,7 +6,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     cards::{mesh::NeedsMesh, Card, Effect, Target},
-    ui::StatsPanel,
     utils::Uuid,
 };
 
@@ -191,7 +190,7 @@ fn cleanup_match(
 #[extension_trait]
 impl CommandExts for Commands<'_, '_> {
     fn spawn_card(&mut self, card: Card, mid: MatchId, owner: Entity, loc: UVec2) {
-        let card_id = self
+        let card = self
             .spawn((
                 mid,
                 Health(card.hp),
@@ -200,9 +199,6 @@ impl CommandExts for Commands<'_, '_> {
                 (GridLocation(loc), SpatialBundle::default()),
                 NeedsMesh,
             ))
-            .set::<OwnedBy>(owner)
-            .id();
-
-        self.spawn((TextBundle::default(), StatsPanel(card_id)));
+            .set::<OwnedBy>(owner);
     }
 }

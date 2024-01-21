@@ -12,14 +12,11 @@ mod ui;
 mod utils;
 
 use bevy::{log::LogPlugin, prelude::*};
-use bevy_renet::renet::RenetClient;
 use wasm_bindgen::prelude::*;
 
 use crate::{
     match_sim::MatchSimPlugin,
-    network::{
-        messages::JoinMatchmakingQueueMessage, ClientExt, ClientPlugin, NwDebugPlugin, ServerPlugin,
-    },
+    network::{ClientPlugin, NwDebugPlugin, ServerPlugin},
     ui::ScenePlugin,
 };
 
@@ -42,13 +39,6 @@ use crate::{
 //
 //     app.add_systems(Startup, setup);
 //     app.run();
-// }
-//
-// fn setup(mut e: EventWriter<StartMatchEvent>) {
-//     e.send(StartMatchEvent {
-//         match_id: MatchId::new(),
-//         players: vec![(PlayerId::new(), cards::deck()), (PlayerId::new(), cards::deck())],
-//     });
 // }
 
 fn log_plugin() -> LogPlugin {
