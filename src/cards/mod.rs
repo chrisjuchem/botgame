@@ -1,4 +1,5 @@
 pub mod mesh;
+pub mod text;
 
 use std::fmt::{Debug, Formatter};
 
@@ -30,13 +31,12 @@ pub enum Ability {
     Passive {
         passive_effect: PassiveEffect,
     },
-    Other,
 }
 impl Ability {
     fn cost(&self) -> Cost {
         match self {
             Ability::Activated { effect, cost } => cost.get(effect),
-            Ability::Other | Ability::Passive { .. } => Cost::FREE,
+            Ability::Passive { .. } => Cost::FREE,
         }
     }
 }

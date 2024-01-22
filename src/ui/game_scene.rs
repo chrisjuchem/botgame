@@ -150,9 +150,10 @@ fn show_hover_overlay(
 
     style.display = Display::Flex;
     style.position_type = PositionType::Absolute;
+    style.max_width = Val::Percent(20.);
 
     *txt = Text {
-        sections: vec![TextSection::new(&card.0.name, TextStyle {
+        sections: vec![TextSection::new(&card.0.full_text(), TextStyle {
             font_size: 15.0,
             color: Color::WHITE,
             ..default()
@@ -180,10 +181,17 @@ fn hide_hover_overlay(event: Listener<Pointer<Out>>, mut panel: Query<(&mut Styl
     style.display = Display::None;
 }
 
-pub fn follow_mouse(mut nodes: Query<(&mut Style, &FollowMouse)>, window: Query<&Window>) {
-    let Some(mouse_pos) = window.single().cursor_position() else { return };
-    for (mut style, follow) in &mut nodes {
-        style.top = Val::Px(mouse_pos.y + follow.offset.y);
-        style.left = Val::Px(mouse_pos.x + follow.offset.x); //todo flip to right if off screen
+pub fn follow_mouse(mut nodes: Query<(&mut Style, &Node, &FollowMouse)>, window: Query<&Window>) {
+    let Ok(window) = window.get_single() else { return };
+    let Some(mouse_pos) = window.cursor_position() else { return };
+    for (mut style, node, follow) in &mut nodes {
+        let width = 15. + node.size().x;
+
+        style.top = Val::Px(f32::max(0., mouse_pos.y - node.size().y / 2.));
+        if mouse_pos.x + width < window.width() {
+            style.left = Val::Px(mouse_pos.x + 15.);
+        } else {
+            style.left = Val::Px(mouse_pos.x - node.size().x - 5.);
+        }
     }
 }
