@@ -1,6 +1,6 @@
 use std::fmt::{format, Display, Formatter};
 
-use crate::cards::{Ability, AbilityCost, Card, Effect, EffectType, PassiveEffect};
+use crate::cards::{Ability, Card, Effect, EffectType, PassiveEffect};
 
 impl Card {
     pub fn full_text(&self) -> String {

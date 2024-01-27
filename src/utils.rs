@@ -43,3 +43,24 @@ impl<'de> serde::Deserialize<'de> for Uuid {
         deserializer.deserialize_byte_buf(UuidVisitor)
     }
 }
+
+pub trait IterExt: Iterator {
+    type IterItem;
+
+    /// Asserts that an iterator has a single item and returns it
+    fn single(self) -> Self::IterItem;
+}
+impl<I> IterExt for I
+where
+    I: Iterator,
+{
+    type IterItem = I::Item;
+
+    fn single(mut self) -> Self::IterItem {
+        match (self.next(), self.next()) {
+            (Some(item), None) => return item,
+            (None, _) => panic!("Expected 1 item in iterator, found 0."),
+            (Some(_), Some(_)) => panic!("Expected 1 item in iterator, found multiple."),
+        }
+    }
+}

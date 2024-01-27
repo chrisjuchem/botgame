@@ -1,3 +1,4 @@
+use bevy::prelude::UVec2;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -12,6 +13,8 @@ make_enum! {
         JoinMatchmakingQueueMessage,
         MatchStartedMessage,
         EffectMessage,
+        NewTurnMessage,
+        ActivateAbilityMessage,
         ProtocolErrorMessage,
     }
 }
@@ -33,6 +36,20 @@ pub struct MatchStartedMessage {
 pub struct EffectMessage {
     pub match_id: MatchId,
     pub effect: Effect,
+    pub targets: Vec<Target>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NewTurnMessage {
+    pub match_id: MatchId,
+    pub next_player: PlayerId,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ActivateAbilityMessage {
+    pub match_id: MatchId,
+    pub unit_location: UVec2,
+    pub ability_idx: usize,
     pub targets: Vec<Target>,
 }
 

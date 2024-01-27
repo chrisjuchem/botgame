@@ -170,6 +170,39 @@ pub fn deck() -> Card {
             max_energy: 0,
             energy_regen: 0,
         },
+        Card {
+            name: "bot 3".to_string(),
+            summon_cost: Cost { energy: 3 },
+            hp: 8,
+            abilities: vec![Ability::Activated {
+                effect: Effect::Attack { damage: 3, effect_type: EffectType::Fire },
+                cost: AbilityCost::Static { cost: Cost { energy: 2 } },
+            }],
+            max_energy: 3,
+            energy_regen: 1,
+        },
+        Card {
+            name: "bot 4".to_string(),
+            summon_cost: Cost { energy: 5 },
+            hp: 20,
+            abilities: vec![Ability::Activated {
+                effect: Effect::Attack { damage: 1, effect_type: EffectType::Physical },
+                cost: AbilityCost::Static { cost: Cost::FREE },
+            }],
+            max_energy: 0,
+            energy_regen: 0,
+        },
+        Card {
+            name: "bot 5".to_string(),
+            summon_cost: Cost { energy: 5 },
+            hp: 20,
+            abilities: vec![Ability::Activated {
+                effect: Effect::Attack { damage: 1, effect_type: EffectType::Physical },
+                cost: AbilityCost::Static { cost: Cost::FREE },
+            }],
+            max_energy: 0,
+            energy_regen: 0,
+        },
     ];
 
     Card {

@@ -12,8 +12,8 @@ use bevy_renet::{
 use extension_trait::extension_trait;
 
 use crate::{
-    match_sim::{EffectEvent, StartMatchEvent, Us},
-    network::messages::{EffectMessage, NetworkMessage, ProtocolErrorMessage},
+    match_sim::{EffectEvent, NewTurnEvent, StartMatchEvent, Us},
+    network::messages::{EffectMessage, NetworkMessage, NewTurnMessage, ProtocolErrorMessage},
 };
 
 pub struct ClientPlugin;
@@ -68,6 +68,7 @@ fn read_messages(
     mut client: ResMut<RenetClient>,
     mut start_match: EventWriter<StartMatchEvent>,
     mut effects: EventWriter<EffectEvent>,
+    mut turns: EventWriter<NewTurnEvent>,
     mut commands: Commands,
 ) {
     while let Some(msg) = client.next_msg() {
@@ -78,6 +79,9 @@ fn read_messages(
             },
             NetworkMessage::EffectMessage(EffectMessage { match_id, effect, targets }) => {
                 effects.send(EffectEvent { match_id, effect, targets });
+            },
+            NetworkMessage::NewTurnMessage(NewTurnMessage { match_id, next_player }) => {
+                turns.send(NewTurnEvent { match_id, next_player })
             },
             NetworkMessage::ProtocolErrorMessage(ProtocolErrorMessage { msg }) => {
                 log::error!("ProtocolError from server: {msg}")

@@ -10,8 +10,8 @@ use crate::{
     match_sim::StartMatchEvent,
     ui::{
         game_scene::{
-            add_overlays_for_new_cards, follow_mouse, spawn_match, transition_to_match,
-            update_card_transforms, update_stat_overlays, MatchScenery,
+            scroll, setup_new_cards, spawn_match, transition_to_match, update_card_transforms,
+            update_stat_overlays, MatchScenery,
         },
         main_menu::{handle_button, spawn_main_menu, MainMenu},
     },
@@ -42,11 +42,11 @@ impl Plugin for ScenePlugin {
             Update,
             (
                 spawn_card_mesh,
-                add_overlays_for_new_cards,
+                setup_new_cards,
                 apply_deferred,
                 update_card_transforms,
                 update_stat_overlays,
-                follow_mouse,
+                scroll,
             )
                 .chain()
                 .run_if(in_state(SceneState::Match)),

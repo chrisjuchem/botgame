@@ -5,7 +5,7 @@ use extension_trait::extension_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards::{mesh::NeedsMesh, Card, Effect, Target},
+    cards::{mesh::NeedsMesh, Ability, Card, Effect, Target},
     utils::Uuid,
 };
 
@@ -29,13 +29,14 @@ impl MatchId {
     }
 }
 
-struct MatchIndex;
+pub struct MatchIndex;
 impl IndexInfo for MatchIndex {
-    type Component = MatchId;
+    type Components = &'static MatchId;
     type Value = MatchId;
     type Storage = HashmapStorage<MatchIndex>;
+    type RefreshPolicy = SimpleRefreshPolicy;
 
-    fn value(c: &Self::Component) -> Self::Value {
+    fn value(c: &MatchId) -> Self::Value {
         *c
     }
 }
@@ -48,13 +49,14 @@ impl PlayerId {
     }
 }
 
-struct PlayerIndex;
+pub struct PlayerIndex;
 impl IndexInfo for PlayerIndex {
-    type Component = PlayerId;
+    type Components = &'static PlayerId;
     type Value = PlayerId;
     type Storage = HashmapStorage<PlayerIndex>;
+    type RefreshPolicy = SimpleRefreshPolicy;
 
-    fn value(c: &Self::Component) -> Self::Value {
+    fn value(c: &PlayerId) -> Self::Value {
         *c
     }
 }
@@ -84,6 +86,9 @@ pub struct Energy {
 
 #[derive(Component)]
 pub struct GridLocation(pub UVec2);
+
+#[derive(Component, Clone)]
+pub struct Abilities(pub Vec<Ability>);
 
 // ====== Events ======
 
@@ -124,7 +129,7 @@ fn start_match(mut commands: Commands, mut e: EventReader<StartMatchEvent>) {
     for StartMatchEvent { match_id, players } in e.read() {
         info!("match {match_id:?} started");
         for player_id in players.iter() {
-            let p = commands.spawn((*match_id, *player_id)).id();
+            let p = commands.spawn((*match_id, *player_id, Name::new("player_id_marker"))).id();
         }
     }
 }
@@ -157,11 +162,7 @@ fn effects(
         match effect {
             Effect::SummonCard { card } => {
                 for t in targets {
-                    // todo: put id struct in target
-                    let mut es = player_index.lookup(&t.player);
-                    // todo: lookup_single
-                    assert_eq!(es.len(), 1);
-                    let e = es.drain().next().expect("should only be on player with id");
+                    let e = player_index.lookup_single(&t.player);
                     commands.spawn_card(card.clone(), *match_id, e, t.location)
                 }
             },
@@ -193,8 +194,10 @@ impl CommandExts for Commands<'_, '_> {
         let card = self
             .spawn((
                 mid,
+                Name::new(card.name.to_string()),
                 Health(card.hp),
                 Energy { current: 1, max: card.max_energy },
+                Abilities(card.abilities.clone()),
                 BaseCard(card),
                 (GridLocation(loc), SpatialBundle::default()),
                 NeedsMesh,

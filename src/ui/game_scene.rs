@@ -1,9 +1,18 @@
 use aery::prelude::{Up as Reverse, *};
-use bevy::prelude::*;
+use bevy::{
+    input::mouse::{MouseScrollUnit, MouseWheel},
+    prelude::*,
+};
 use bevy_mod_picking::prelude::*;
+use bevy_renet::renet::RenetClient;
 
 use crate::{
-    match_sim::{BaseCard, Energy, GridLocation, Health, OwnedBy, PlayerId, StartMatchEvent, Us},
+    cards::Target,
+    match_sim::{
+        Abilities, BaseCard, CurrentTurn, Energy, GridLocation, Health, MatchId, OwnedBy, PlayerId,
+        StartMatchEvent, Us,
+    },
+    network::{messages::ActivateAbilityMessage, ClientExt},
     ui::SceneState,
 };
 
@@ -125,73 +134,319 @@ pub fn update_stat_overlays(
     }
 }
 
-pub fn add_overlays_for_new_cards(cards: Query<Entity, Added<BaseCard>>, mut commands: Commands) {
+pub fn setup_new_cards(cards: Query<Entity, Added<BaseCard>>, mut commands: Commands) {
     for e in &cards {
         commands.spawn((TextBundle::default(), StatsPanel(e), MatchScenery));
-        commands.spawn((TextBundle::default(), HoverPanel(e), MatchScenery));
+        // commands.spawn((TextBundle::default(), HoverPanel(e), MatchScenery));
         commands.entity(e).insert((
             MatchScenery,
-            On::<Pointer<Over>>::run(show_hover_overlay),
-            On::<Pointer<Out>>::run(hide_hover_overlay),
+            // On::<Pointer<Over>>::run(show_hover_overlay),
+            // On::<Pointer<Out>>::run(hide_hover_overlay),
+            On::<Pointer<Click>>::run(create_ability_overlay),
         ));
     }
 }
 
-fn show_hover_overlay(
-    event: Listener<Pointer<Over>>,
-    mut panel: Query<(Entity, &mut Text, &mut Style, &Node, &HoverPanel)>,
-    cards: Query<&BaseCard>,
+// fn show_hover_overlay(
+//     event: Listener<Pointer<Over>>,
+//     mut panel: Query<(Entity, &mut Text, &mut Style, &Node, &HoverPanel)>,
+//     cards: Query<&BaseCard>,
+//     mut commands: Commands,
+// ) {
+//     let target = event.listener();
+//     let card = cards.get(target).unwrap();
+//     let (e, mut txt, mut style, node, _) =
+//         panel.iter_mut().filter(|(_, _, _, _, panel)| panel.0 == target).next().unwrap();
+//
+//     style.display = Display::Flex;
+//     style.position_type = PositionType::Absolute;
+//     style.max_width = Val::Percent(20.);
+//
+//     *txt = Text {
+//         sections: vec![TextSection::new(&card.0.full_text(), TextStyle {
+//             font_size: 15.0,
+//             color: Color::WHITE,
+//             ..default()
+//         })],
+//         alignment: TextAlignment::Center,
+//         ..default()
+//     };
+//
+//     commands.entity(e).insert(FollowMouse { offset: Vec2::new(15., node.size().y / 2.) });
+// }
+//
+// #[derive(Component)]
+// pub struct FollowMouse {
+//     offset: Vec2,
+// }
+//
+// fn hide_hover_overlay(event: Listener<Pointer<Out>>, mut panel: Query<(&mut Style, &HoverPanel)>) {
+//     let card = event.listener();
+//     let mut style = panel
+//         .iter_mut()
+//         .filter_map(|(style, panel)| (panel.0 == card).then_some(style))
+//         .next()
+//         .unwrap();
+//
+//     style.display = Display::None;
+// }
+//
+// pub fn follow_mouse(mut nodes: Query<(&mut Style, &Node, &FollowMouse)>, window: Query<&Window>) {
+//     let Ok(window) = window.get_single() else { return };
+//     let Some(mouse_pos) = window.cursor_position() else { return };
+//     for (mut style, node, follow) in &mut nodes {
+//         let width = 15. + node.size().x;
+//
+//         style.top = Val::Px(f32::max(0., mouse_pos.y - node.size().y / 2.));
+//         if mouse_pos.x + width < window.width() {
+//             style.left = Val::Px(mouse_pos.x + 15.);
+//         } else {
+//             style.left = Val::Px(mouse_pos.x - node.size().x - 5.);
+//         }
+//     }
+// }
+
+#[derive(Component, Default)]
+pub struct Scroll {
+    current: f32,
+    step: f32,
+    target: f32,
+}
+
+pub fn create_ability_overlay(
+    event: Listener<Pointer<Click>>,
     mut commands: Commands,
+    cards: Query<(&Abilities, &GridLocation, &MatchId, Relations<OwnedBy>)>,
+    players: Query<(&PlayerId, Has<CurrentTurn>)>,
+    us: Res<Us>,
+    window: Query<&Window>,
 ) {
-    let target = event.listener();
-    let card = cards.get(target).unwrap();
-    let (e, mut txt, mut style, node, _) =
-        panel.iter_mut().filter(|(_, _, _, _, panel)| panel.0 == target).next().unwrap();
+    let card = event.listener();
+    let (abilities, grid_loc, match_id, ownership) = cards.get(card).unwrap();
+    let window = window.single();
 
-    style.display = Display::Flex;
-    style.position_type = PositionType::Absolute;
-    style.max_width = Val::Percent(20.);
+    let size = Vec2::new(0.2 * window.width(), 0.4 * window.height());
+    let side_offest = 20.;
+    let margin = UiRect::all(Val::Px(3.));
+    let mouse_pos = window.cursor_position().unwrap();
 
-    *txt = Text {
-        sections: vec![TextSection::new(&card.0.full_text(), TextStyle {
-            font_size: 15.0,
-            color: Color::WHITE,
-            ..default()
-        })],
-        alignment: TextAlignment::Center,
-        ..default()
+    let top = (mouse_pos.y - (size.y / 2.)).clamp(0., window.height() - size.y);
+    let left = if mouse_pos.x + size.x + side_offest < window.width() {
+        mouse_pos.x + side_offest
+    } else {
+        mouse_pos.x - size.x - side_offest
     };
 
-    commands.entity(e).insert(FollowMouse { offset: Vec2::new(15., node.size().y / 2.) });
+    let (mut owner, mut owners_turn) = (None, None);
+    ownership.join::<Reverse<OwnedBy>>(&players).for_each(|(o, t)| {
+        assert!(owner.is_none());
+        owner = Some(*o);
+        owners_turn = Some(t);
+    });
+    let buttons_active = owners_turn.unwrap() && owner.unwrap() == us.0;
+
+    let our_mid = *match_id;
+    let our_pid = us.0;
+    let our_grid_loc = grid_loc.0;
+
+    let scrollbar = commands
+        .spawn((Name::new("scrollbar"), NodeBundle {
+            style: Style {
+                width: Val::Px(4.),
+                height: Val::Percent(50.),
+                position_type: PositionType::Relative,
+                top: Val::Px(0.), //moved by scroll system
+                margin,
+                ..default()
+            },
+            background_color: BackgroundColor(Color::GRAY),
+            ..default()
+        }))
+        .id();
+
+    let content = commands
+        .spawn((Name::new("abilities_list_window"), NodeBundle {
+            style: Style {
+                flex_direction: FlexDirection::Column,
+                overflow: Overflow::clip_y(),
+                flex_grow: 1.,
+                ..default()
+            },
+            ..default()
+        }))
+        .with_children(|base| {
+            base.spawn((Name::new("abilities_list"), NodeBundle {
+                style: Style {
+                    position_type: PositionType::Relative,
+                    top: Val::Px(0.), //moved by scroll system
+                    flex_direction: FlexDirection::Column,
+                    ..default()
+                },
+                ..default()
+            }))
+            .with_children(|base| {
+                for (i, ability) in abilities.0.iter().enumerate() {
+                    let mut button = base.spawn(TextBundle {
+                        style: Style { margin, ..default() },
+                        text: Text::from_section(ability.full_text(), TextStyle {
+                            font_size: 15.0,
+                            color: Color::WHITE,
+                            ..default()
+                        }),
+                        background_color: BackgroundColor(Color::GRAY),
+                        ..default()
+                    });
+
+                    if buttons_active {
+                        button.insert((
+                            On::<Pointer<Over>>::listener_component_mut::<BackgroundColor>(
+                                |e, color| {
+                                    color.0 = Color::hex("#5aad65").unwrap();
+                                },
+                            ),
+                            On::<Pointer<Out>>::listener_component_mut::<BackgroundColor>(
+                                |e, color| {
+                                    color.0 = Color::GRAY;
+                                },
+                            ),
+                            On::<Pointer<Click>>::run(move |mut client: ResMut<RenetClient>| {
+                                // TODO: Targeting UI instead
+                                client.send(ActivateAbilityMessage {
+                                    match_id: our_mid,
+                                    unit_location: our_grid_loc,
+                                    ability_idx: i,
+                                    targets: vec![Target {
+                                        location: UVec2::new(1, i as u32),
+                                        player: our_pid,
+                                    }],
+                                });
+                            }),
+                        ));
+                    }
+                }
+            });
+        })
+        .id();
+
+    let scene_shield = commands
+        .spawn((
+            MatchScenery,
+            Name::new("scene_guard"),
+            NodeBundle {
+                style: Style { width: Val::Vw(100.), height: Val::Vh(100.), ..default() },
+                ..default()
+            },
+            On::<Pointer<Click>>::run(
+                |listener: Listener<Pointer<Click>>, mut commands: Commands| {
+                    commands.entity(listener.listener()).despawn_recursive();
+                },
+            ),
+        ))
+        .id();
+
+    let panel = commands
+        .spawn((
+            MatchScenery,
+            Name::new("ability_panel"),
+            NodeBundle {
+                style: Style {
+                    position_type: PositionType::Absolute,
+                    width: Val::Px(size.x),
+                    height: Val::Px(size.y),
+                    top: Val::Px(top),
+                    left: Val::Px(left),
+                    ..default()
+                },
+                background_color: Color::WHITE.into(),
+                ..default()
+            },
+            Interaction::default(),
+            Scroll::default(),
+            On::<Pointer<Click>>::run(
+                move |mut listener: ListenerMut<Pointer<Click>>, mut commands: Commands| {
+                    listener.stop_propagation();
+                    if buttons_active {
+                        commands.entity(scene_shield).despawn_recursive();
+                    }
+                },
+            ),
+        ))
+        .add_child(content)
+        .add_child(scrollbar)
+        .id();
+
+    commands.entity(scene_shield).add_child(panel);
 }
 
-#[derive(Component)]
-pub struct FollowMouse {
-    offset: Vec2,
-}
+pub fn scroll(
+    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut container: Query<(&mut Scroll, &Children, &Interaction, &Node)>,
+    mut inners: Query<(&mut Style, &Node, Option<&Children>)>,
+) {
+    let events = mouse_wheel_events.read().collect::<Vec<_>>();
 
-fn hide_hover_overlay(event: Listener<Pointer<Out>>, mut panel: Query<(&mut Style, &HoverPanel)>) {
-    let target = event.listener();
-    let mut style = panel
-        .iter_mut()
-        .filter_map(|(style, panel)| (panel.0 == target).then_some(style))
-        .next()
-        .unwrap();
-
-    style.display = Display::None;
-}
-
-pub fn follow_mouse(mut nodes: Query<(&mut Style, &Node, &FollowMouse)>, window: Query<&Window>) {
-    let Ok(window) = window.get_single() else { return };
-    let Some(mouse_pos) = window.cursor_position() else { return };
-    for (mut style, node, follow) in &mut nodes {
-        let width = 15. + node.size().x;
-
-        style.top = Val::Px(f32::max(0., mouse_pos.y - node.size().y / 2.));
-        if mouse_pos.x + width < window.width() {
-            style.left = Val::Px(mouse_pos.x + 15.);
-        } else {
-            style.left = Val::Px(mouse_pos.x - node.size().x - 5.);
+    for (mut scroll, children, interaction, parent_node) in &mut container {
+        if parent_node.size().y == 0. {
+            // initial frame
+            continue;
         }
+
+        let (_, content_window_node, content_window_kids) =
+            inners.get_mut(*children.get(0).unwrap()).unwrap();
+        let content_window_h = content_window_node.size().y;
+        let content: Entity = *content_window_kids.unwrap().get(0).unwrap();
+        let (mut content_style, content_node, _) = inners.get_mut(content).unwrap();
+
+        let max_scroll = (content_node.size().y - parent_node.size().y).max(0.);
+
+        for e in events.iter() {
+            if matches!(interaction, Interaction::Hovered) {
+                scroll.target -= match e.unit {
+                    MouseScrollUnit::Line => e.y * 20.,
+                    MouseScrollUnit::Pixel => e.y,
+                };
+            }
+            scroll.target = scroll.target.clamp(0., max_scroll);
+        }
+
+        let dist = (scroll.target - scroll.current).abs();
+        if dist > scroll.step * 4. {
+            scroll.step = dist / 4.;
+        } else if scroll.target == scroll.current {
+            scroll.step = 0.;
+        }
+
+        if dist < scroll.step {
+            scroll.current = scroll.target;
+        } else if scroll.current < scroll.target {
+            scroll.current += scroll.step;
+        } else {
+            scroll.current -= scroll.step;
+        }
+        content_style.top = Val::Px(-scroll.current);
+        let content_h = content_node.size().y;
+
+        let (mut bar_style, bar_node, _) = inners.get_mut(*children.get(1).unwrap()).unwrap();
+        let margin = match (bar_style.margin.top, bar_style.margin.bottom) {
+            (Val::Px(top), Val::Px(bottom)) => top + bottom,
+            _ => panic!("scrollbar margin must be in px"),
+        };
+        let h = parent_node.size().y - margin;
+        let bar_length = h * content_window_h / content_h;
+        let bar_top =
+            if max_scroll == 0. { 0. } else { (h - bar_length) * scroll.current / max_scroll };
+
+        if bar_length >= h {
+            bar_style.display = Display::None;
+        } else {
+            bar_style.display = Display::Flex;
+            bar_style.height = Val::Px(bar_length);
+            bar_style.top = Val::Px(bar_top);
+        }
+        // println!(
+        //     "bar_length:{bar_length} bar_top:{bar_top} h:{h}, content_h:{content_h}, \
+        //      max_scroll:{max_scroll} scroll.current:{}, scroll.target:{}",
+        //     scroll.current, scroll.target
+        // );
     }
 }

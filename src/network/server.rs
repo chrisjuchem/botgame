@@ -1,10 +1,12 @@
 use std::{net::UdpSocket, time::SystemTime};
 
+use aery::prelude::*;
 use bevy::{
     log,
     prelude::*,
     utils::{hashbrown::hash_map::Entry, HashMap},
 };
+use bevy_mod_index::prelude::Index;
 use bevy_renet::{
     renet::{
         transport::{NetcodeServerTransport, ServerAuthentication, ServerConfig},
@@ -16,11 +18,14 @@ use bevy_renet::{
 use extension_trait::extension_trait;
 
 use crate::{
-    cards::{Card, Effect, Target},
-    match_sim::{EffectEvent, MatchId, PlayerId, StartMatchEvent},
+    cards::{Ability, Card, Effect, Target},
+    match_sim::{
+        Abilities, CurrentTurn, EffectEvent, GridLocation, MatchId, NewTurnEvent, OwnedBy,
+        PlayerId, PlayerIndex, StartMatchEvent,
+    },
     network::messages::{
-        EffectMessage, JoinMatchmakingQueueMessage, MatchStartedMessage, NetworkMessage,
-        ProtocolErrorMessage,
+        ActivateAbilityMessage, EffectMessage, JoinMatchmakingQueueMessage, MatchStartedMessage,
+        NetworkMessage, NewTurnMessage, ProtocolErrorMessage,
     },
 };
 
@@ -45,9 +50,13 @@ impl Plugin for ServerPlugin {
         app.insert_resource(ConnectedClients::default());
         app.insert_resource(MMQueue::default());
         app.insert_resource(MatchClientMap::default());
+        app.insert_resource(AbilityQueue::default());
         app.add_systems(First, read_messages);
         app.add_systems(PreUpdate, matchmaking.run_if(resource_changed::<MMQueue>()));
-        app.add_systems(Update, (send_match_start, send_effects).chain());
+        app.add_systems(
+            Update,
+            (process_abilities, send_match_start, send_effects, send_turn_change).chain(),
+        );
     }
 }
 
@@ -62,6 +71,9 @@ struct QueueInfo {
     deck: Card,
     player_name: String,
 }
+
+#[derive(Resource, Default)]
+struct AbilityQueue(Vec<(ClientId, ActivateAbilityMessage)>);
 
 #[extension_trait]
 pub impl ServerExt for RenetServer {
@@ -94,6 +106,7 @@ fn read_messages(
     mut server: ResMut<RenetServer>,
     mut clients: ResMut<ConnectedClients>,
     mut mm_queue: ResMut<MMQueue>,
+    mut ability_queue: ResMut<AbilityQueue>,
 ) {
     for event in server_events.read() {
         match event {
@@ -122,6 +135,9 @@ fn read_messages(
                         server.send_error(client_id, "already in queue".to_string());
                     },
                 },
+                NetworkMessage::ActivateAbilityMessage(msg) => {
+                    ability_queue.0.push((*client_id, msg))
+                },
                 NetworkMessage::ProtocolErrorMessage(ProtocolErrorMessage { msg }) => {
                     log::error!("ProtocolError from client {client_id}: {msg}")
                 },
@@ -137,6 +153,7 @@ fn matchmaking(
     mut mm_queue: ResMut<MMQueue>,
     mut start_match: EventWriter<StartMatchEvent>,
     mut effects: EventWriter<EffectEvent>,
+    mut start_turn: EventWriter<NewTurnEvent>,
     mut match_map: ResMut<MatchClientMap>,
     mut clients: ResMut<ConnectedClients>,
     mut rand: Local<u32>,
@@ -172,8 +189,10 @@ fn matchmaking(
         });
     }
 
-    let players = players.into_iter().map(|(pid, _)| pid).collect();
+    let players = players.into_iter().map(|(pid, _)| pid).collect::<Vec<_>>();
+    let p1 = players[0]; //todo random
     start_match.send(StartMatchEvent { match_id, players });
+    start_turn.send(NewTurnEvent { match_id, next_player: p1 });
 }
 
 fn send_match_start(
@@ -206,5 +225,90 @@ fn send_effects(
                 targets: targets.clone(),
             });
         }
+    }
+}
+
+fn send_turn_change(
+    mut turns: EventReader<NewTurnEvent>,
+    mut server: ResMut<RenetServer>,
+    client_map: Res<MatchClientMap>,
+) {
+    for NewTurnEvent { match_id, next_player } in turns.read() {
+        for client_id in client_map.0.get(match_id).unwrap() {
+            server
+                .send(client_id, NewTurnMessage { match_id: *match_id, next_player: *next_player });
+        }
+    }
+}
+
+fn process_abilities(
+    mut ability_queue: ResMut<AbilityQueue>,
+    mut effects: EventWriter<EffectEvent>,
+    mut turns: EventWriter<NewTurnEvent>,
+    cards: Query<(&GridLocation, &Abilities)>,
+    players: Query<(Has<CurrentTurn>, Relations<OwnedBy>)>,
+    mut player_idx: Index<PlayerIndex>,
+    clients: Res<ConnectedClients>,
+    client_map: Res<MatchClientMap>,
+    mut server: ResMut<RenetServer>,
+) {
+    for (client_id, activation) in ability_queue.0.drain(..) {
+        let Some(Some(pid)) = clients.0.get(&client_id) else {
+            server.send_error(&client_id, "Not in a match.");
+            continue;
+        };
+
+        let (cur_turn, players_cards) = players.get(player_idx.lookup_single(&pid)).unwrap();
+        if !cur_turn {
+            server.send_error(&client_id, "Not your turn.");
+            continue;
+        }
+
+        let mut ability_list = None;
+        players_cards.join::<OwnedBy>(&cards).for_each(|(grid_loc, abilities)| {
+            if grid_loc.0 == activation.unit_location {
+                ability_list = Some(abilities.0.clone())
+            }
+        });
+        let Some(ability_list) = ability_list else {
+            server.send_error(&client_id, "No unit there.");
+            continue;
+        };
+
+        let Some(ability) = ability_list.get(activation.ability_idx) else {
+            server.send_error(&client_id, "No such ability.");
+            continue;
+        };
+
+        let Ability::Activated { effect, cost } = ability else {
+            server.send_error(&client_id, "Ability is passive.");
+            continue;
+        };
+
+        // todo validate targets
+
+        // todo validate and pay cost
+
+        effects.send(EffectEvent {
+            match_id: activation.match_id,
+            effect: effect.clone(),
+            targets: activation.targets,
+        });
+
+        let next_player = clients
+            .0
+            .get(
+                client_map
+                    .0
+                    .get(&activation.match_id)
+                    .unwrap()
+                    .iter()
+                    .filter(|c| **c != client_id)
+                    .next()
+                    .unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        turns.send(NewTurnEvent { match_id: activation.match_id, next_player })
     }
 }
