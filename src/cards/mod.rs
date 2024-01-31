@@ -4,12 +4,16 @@ pub mod text;
 use std::fmt::{Debug, Formatter};
 
 use bevy::math::UVec2;
+use bevy_mod_index::index::Index;
 use serde::{
     de::{Error, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::match_sim::PlayerId;
+use crate::{
+    match_sim::{GridLocation, PlayerId},
+    ui::game_scene::targeting::{CardQueryItem, Cards},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Card {
@@ -23,20 +27,14 @@ pub struct Card {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Ability {
-    Activated {
-        effect: Effect,
-        cost: AbilityCost,
-        // targets
-    },
-    Passive {
-        passive_effect: PassiveEffect,
-    },
+    Activated { effect: Effect, cost: AbilityCost, target_rules: TargetRules },
+    Passive { passive_effect: PassiveEffect, target_filter: TargetFilter },
 }
 impl Ability {
-    fn cost(&self) -> Cost {
+    fn cost(&self) -> Option<Cost> {
         match self {
-            Ability::Activated { effect, cost } => cost.get(effect),
-            Ability::Passive { .. } => Cost::FREE,
+            Ability::Activated { effect, cost, .. } => Some(cost.get(effect)),
+            Ability::Passive { .. } => None,
         }
     }
 }
@@ -127,7 +125,7 @@ pub enum Effect {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PassiveEffect {
     DamageResistance { effect_type: EffectType, factor: f32 },
-    WhenHit { effect: Effect },
+    WhenHit { effect: Effect, target_rules: TargetRules },
     // ModifySummonCost
     // ModifyAbilityCost ??
 }
@@ -146,6 +144,73 @@ pub struct Target {
     pub(crate) location: UVec2,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TargetRules {
+    amount: TargetAmount,
+    filter: TargetFilter,
+    // chosen, random, or auto
+}
+impl TargetRules {
+    pub(crate) fn validate(
+        &self,
+        targets: &[(UVec2, PlayerId)],
+        idx: &mut Index<GridLocation>,
+        cards: &Cards,
+        us: PlayerId,
+    ) -> bool {
+        if !self.amount.validate(targets.len()) {
+            return false;
+        }
+
+        targets.iter().all(|loc_pid| {
+            let card = idx.lookup(loc_pid).next().map(|e| cards.cards.get(e).unwrap());
+            let pid = loc_pid.1;
+
+            self.filter.validate(card.as_ref(), pid, us)
+        })
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TargetAmount {
+    All,
+    N { n: usize },
+    UpToN { n: usize },
+}
+impl TargetAmount {
+    pub fn validate(&self, x: usize) -> bool {
+        match self {
+            TargetAmount::N { n } => *n == x,
+            TargetAmount::UpToN { n } => x <= *n,
+            TargetAmount::All => panic!("TODO: implement 'all' targeting"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum TargetFilter {
+    Any,
+    Friendly,
+    Enemy,
+    Unoccupied,
+    Occupied,
+    And(Vec<TargetFilter>),
+    Or(Vec<TargetFilter>),
+}
+impl TargetFilter {
+    pub fn validate(&self, card: Option<&CardQueryItem>, owner: PlayerId, us: PlayerId) -> bool {
+        match self {
+            TargetFilter::Any => true,
+            TargetFilter::Friendly => owner == us,
+            TargetFilter::Enemy => owner != us,
+            TargetFilter::Unoccupied => card.is_none(),
+            TargetFilter::Occupied => card.is_some(),
+            TargetFilter::And(conds) => conds.iter().all(|c| c.validate(card, owner, us)),
+            TargetFilter::Or(conds) => conds.iter().any(|c| c.validate(card, owner, us)),
+        }
+    }
+}
+
 pub fn deck() -> Card {
     let deck = vec![
         Card {
@@ -155,6 +220,10 @@ pub fn deck() -> Card {
             abilities: vec![Ability::Activated {
                 effect: Effect::Attack { damage: 3, effect_type: EffectType::Fire },
                 cost: AbilityCost::Static { cost: Cost { energy: 2 } },
+                target_rules: TargetRules {
+                    amount: TargetAmount::N { n: 1 },
+                    filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
+                },
             }],
             max_energy: 3,
             energy_regen: 1,
@@ -166,6 +235,10 @@ pub fn deck() -> Card {
             abilities: vec![Ability::Activated {
                 effect: Effect::Attack { damage: 1, effect_type: EffectType::Physical },
                 cost: AbilityCost::Static { cost: Cost::FREE },
+                target_rules: TargetRules {
+                    amount: TargetAmount::N { n: 1 },
+                    filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
+                },
             }],
             max_energy: 0,
             energy_regen: 0,
@@ -177,6 +250,10 @@ pub fn deck() -> Card {
             abilities: vec![Ability::Activated {
                 effect: Effect::Attack { damage: 3, effect_type: EffectType::Fire },
                 cost: AbilityCost::Static { cost: Cost { energy: 2 } },
+                target_rules: TargetRules {
+                    amount: TargetAmount::N { n: 1 },
+                    filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
+                },
             }],
             max_energy: 3,
             energy_regen: 1,
@@ -188,6 +265,10 @@ pub fn deck() -> Card {
             abilities: vec![Ability::Activated {
                 effect: Effect::Attack { damage: 1, effect_type: EffectType::Physical },
                 cost: AbilityCost::Static { cost: Cost::FREE },
+                target_rules: TargetRules {
+                    amount: TargetAmount::N { n: 1 },
+                    filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
+                },
             }],
             max_energy: 0,
             energy_regen: 0,
@@ -199,6 +280,10 @@ pub fn deck() -> Card {
             abilities: vec![Ability::Activated {
                 effect: Effect::Attack { damage: 1, effect_type: EffectType::Physical },
                 cost: AbilityCost::Static { cost: Cost::FREE },
+                target_rules: TargetRules {
+                    amount: TargetAmount::N { n: 1 },
+                    filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
+                },
             }],
             max_energy: 0,
             energy_regen: 0,
@@ -214,6 +299,13 @@ pub fn deck() -> Card {
             .map(|card| Ability::Activated {
                 effect: Effect::SummonCard { card },
                 cost: AbilityCost::Derived { func: &summon_cost },
+                target_rules: TargetRules {
+                    amount: TargetAmount::N { n: 1 },
+                    filter: TargetFilter::And(vec![
+                        TargetFilter::Unoccupied,
+                        TargetFilter::Friendly,
+                    ]),
+                },
             })
             .collect(),
         max_energy: 10,

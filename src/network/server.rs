@@ -280,7 +280,7 @@ fn process_abilities(
             continue;
         };
 
-        let Ability::Activated { effect, cost } = ability else {
+        let Ability::Activated { effect, cost, target_rules } = ability else {
             server.send_error(&client_id, "Ability is passive.");
             continue;
         };

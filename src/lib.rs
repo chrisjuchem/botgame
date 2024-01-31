@@ -2,8 +2,6 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-extern crate core;
-
 mod cards;
 mod macros;
 mod match_sim;

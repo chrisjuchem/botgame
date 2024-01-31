@@ -10,8 +10,9 @@ use crate::{
     match_sim::StartMatchEvent,
     ui::{
         game_scene::{
-            scroll, setup_new_cards, spawn_match, transition_to_match, update_card_transforms,
-            update_stat_overlays, MatchScenery,
+            scroll, setup_new_cards, spawn_match,
+            targeting::{check_targets, start_targeting, Targeting},
+            transition_to_match, update_card_transforms, update_stat_overlays, MatchScenery,
         },
         main_menu::{handle_button, spawn_main_menu, MainMenu},
     },
@@ -50,6 +51,12 @@ impl Plugin for ScenePlugin {
             )
                 .chain()
                 .run_if(in_state(SceneState::Match)),
+        );
+        app.add_systems(
+            Update,
+            (start_targeting, apply_deferred, check_targets)
+                .chain()
+                .run_if(resource_exists_and_changed::<Targeting>()),
         );
     }
 }

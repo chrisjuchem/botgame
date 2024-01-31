@@ -1,10 +1,11 @@
+pub mod targeting;
+
 use aery::prelude::{Up as Reverse, *};
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
 use bevy_mod_picking::prelude::*;
-use bevy_renet::renet::RenetClient;
 
 use crate::{
     cards::Target,
@@ -13,7 +14,7 @@ use crate::{
         StartMatchEvent, Us,
     },
     network::{messages::ActivateAbilityMessage, ClientExt},
-    ui::SceneState,
+    ui::{game_scene::targeting::Targeting, SceneState},
 };
 
 pub fn transition_to_match(e: EventReader<StartMatchEvent>, mut s: ResMut<NextState<SceneState>>) {
@@ -136,7 +137,12 @@ pub fn update_stat_overlays(
 
 pub fn setup_new_cards(cards: Query<Entity, Added<BaseCard>>, mut commands: Commands) {
     for e in &cards {
-        commands.spawn((TextBundle::default(), StatsPanel(e), MatchScenery));
+        commands.spawn((
+            TextBundle::default(),
+            StatsPanel(e),
+            MatchScenery,
+            Name::new("stats_panel"),
+        ));
         // commands.spawn((TextBundle::default(), HoverPanel(e), MatchScenery));
         commands.entity(e).insert((
             MatchScenery,
@@ -221,8 +227,8 @@ pub fn create_ability_overlay(
     us: Res<Us>,
     window: Query<&Window>,
 ) {
-    let card = event.listener();
-    let (abilities, grid_loc, match_id, ownership) = cards.get(card).unwrap();
+    let card_entity = event.listener();
+    let (abilities, grid_loc, match_id, ownership) = cards.get(card_entity).unwrap();
     let window = window.single();
 
     let size = Vec2::new(0.2 * window.width(), 0.4 * window.height());
@@ -309,17 +315,12 @@ pub fn create_ability_overlay(
                                     color.0 = Color::GRAY;
                                 },
                             ),
-                            On::<Pointer<Click>>::run(move |mut client: ResMut<RenetClient>| {
-                                // TODO: Targeting UI instead
-                                client.send(ActivateAbilityMessage {
-                                    match_id: our_mid,
-                                    unit_location: our_grid_loc,
+                            On::<Pointer<Click>>::run(move |mut commands: Commands| {
+                                commands.insert_resource(Targeting {
+                                    source: card_entity,
                                     ability_idx: i,
-                                    targets: vec![Target {
-                                        location: UVec2::new(1, i as u32),
-                                        player: our_pid,
-                                    }],
-                                });
+                                    chosen: vec![],
+                                })
                             }),
                         ));
                     }

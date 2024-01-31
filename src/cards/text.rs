@@ -1,6 +1,8 @@
-use std::fmt::{format, Display, Formatter};
+use std::fmt::{Display, Formatter};
 
-use crate::cards::{Ability, Card, Effect, EffectType, PassiveEffect};
+use crate::cards::{
+    Ability, Card, Effect, EffectType, PassiveEffect, TargetAmount, TargetFilter, TargetRules,
+};
 
 impl Card {
     pub fn full_text(&self) -> String {
@@ -21,44 +23,48 @@ impl Card {
 impl Ability {
     pub fn full_text(&self) -> String {
         match self {
-            Ability::Activated { effect, cost } => {
-                let energy_cost = self.cost().energy;
-                let effect_str = effect.full_text();
+            Ability::Activated { effect, cost, target_rules } => {
+                let energy_cost = self.cost().unwrap().energy;
+                let effect_str = effect.full_text(target_rules.text());
 
                 format!("{{{energy_cost}}}: {effect_str}",)
             },
-            Ability::Passive { passive_effect } => passive_effect.full_text(),
+            Ability::Passive { passive_effect, target_filter } => {
+                passive_effect.full_text(target_filter.text())
+            },
         }
     }
 }
 
 impl Effect {
-    pub fn full_text(&self) -> String {
+    pub fn full_text(&self, target_str: String) -> String {
         match self {
             Effect::Attack { damage, effect_type } => {
-                format!("Deal {damage} {effect_type} damage.")
+                format!("Deal {damage} {effect_type} damage to {target_str}.")
             },
             Effect::GrantAbility { ability } => {
-                format!("Give a card \"{}\"", ability.full_text())
+                format!("Give {target_str} \"{}\"", ability.full_text())
             },
             Effect::SummonCard { card } => {
-                format!("Summon a card called:\n\n{}\n", card.full_text())
+                format!("Summon the following unit to {target_str}:\n\n{}\n", card.full_text())
             },
-            Effect::MultipleEffects { effects } => {
-                effects.iter().map(Effect::full_text).collect::<Vec<_>>().join(" ")
-            },
+            Effect::MultipleEffects { effects } => effects
+                .iter()
+                .map(|e| e.full_text(target_str.clone()))
+                .collect::<Vec<_>>()
+                .join(" "),
         }
     }
 }
 
 impl PassiveEffect {
-    pub fn full_text(&self) -> String {
+    pub fn full_text(&self, target_str: String) -> String {
         match self {
             PassiveEffect::DamageResistance { effect_type, factor } => {
-                format!("This card takes {factor}x damage from {effect_type} attacks.")
+                format!("{target_str} takes {factor}x damage from {effect_type} attacks.")
             },
-            PassiveEffect::WhenHit { effect } => {
-                format!("Whenever this card is hit, {}", effect.full_text())
+            PassiveEffect::WhenHit { effect, target_rules } => {
+                format!("Whenever a {target_str} is hit, {}", effect.full_text(target_rules.text()))
             },
         }
     }
@@ -72,5 +78,33 @@ impl Display for EffectType {
             EffectType::Fire => "fire",
             EffectType::Electrical => "electrical",
         })
+    }
+}
+
+impl TargetRules {
+    pub fn text(&self) -> String {
+        match self.amount {
+            TargetAmount::All => format!("all {}", self.filter.text()),
+            TargetAmount::N { n } => format!("{n} {}", self.filter.text()),
+            TargetAmount::UpToN { n } => format!("up to {n} {}", self.filter.text()),
+        }
+    }
+}
+
+impl TargetFilter {
+    pub fn text(&self) -> String {
+        match self {
+            TargetFilter::Any => "location(s)".to_string(),
+            TargetFilter::Friendly => "friendly".to_string(),
+            TargetFilter::Enemy => "enemy".to_string(),
+            TargetFilter::Unoccupied => "open location(s)".to_string(),
+            TargetFilter::Occupied => "unit(s)".to_string(),
+            TargetFilter::And(conds) => {
+                conds.iter().map(|f| f.text()).collect::<Vec<_>>().join(" ")
+            },
+            TargetFilter::Or(conds) => {
+                conds.iter().map(|f| f.text()).collect::<Vec<_>>().join(" or ")
+            },
+        }
     }
 }

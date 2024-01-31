@@ -86,6 +86,16 @@ pub struct Energy {
 
 #[derive(Component)]
 pub struct GridLocation(pub UVec2);
+impl IndexInfo for GridLocation {
+    type Components = (GridLocation, PlayerId);
+    type Value = (UVec2, PlayerId);
+    type Storage = HashmapStorage<GridLocation>;
+    type RefreshPolicy = SimpleRefreshPolicy;
+
+    fn value((loc, pid): (&GridLocation, &PlayerId)) -> Self::Value {
+        (loc.0, *pid)
+    }
+}
 
 #[derive(Component, Clone)]
 pub struct Abilities(pub Vec<Ability>);
