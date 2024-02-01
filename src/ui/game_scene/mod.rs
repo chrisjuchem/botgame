@@ -1,19 +1,17 @@
 pub mod targeting;
 
-use aery::prelude::{Up as Reverse, *};
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
 };
+use bevy_mod_index::prelude::Index;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
-    cards::Target,
     match_sim::{
-        Abilities, BaseCard, CurrentTurn, Energy, GridLocation, Health, MatchId, OwnedBy, PlayerId,
+        Abilities, BaseCard, CurrentTurn, Energy, GridLocation, Health, MatchId, PlayerId,
         StartMatchEvent, Us,
     },
-    network::{messages::ActivateAbilityMessage, ClientExt},
     ui::{game_scene::targeting::Targeting, SceneState},
 };
 
@@ -81,26 +79,24 @@ pub fn spawn_match(
     // });
 }
 
-const GRID_H: f32 = 4.;
-const GRID_W: f32 = 5.;
+pub const GRID_H: f32 = 4.;
+pub const GRID_W: f32 = 5.;
 
 pub fn update_card_transforms(
-    mut cards: Query<((&GridLocation, &mut Transform), Relations<OwnedBy>), Changed<GridLocation>>,
+    mut cards: Query<(&GridLocation, &mut Transform), Changed<GridLocation>>,
     players: Query<&PlayerId>,
     us: Res<Us>,
 ) {
-    for ((loc, mut t), ownership) in &mut cards {
-        ownership.join::<Reverse<OwnedBy>>(&players).for_each(|pid| {
-            // 5x4 -> 20x12   4x/3x
-            let row = if *pid == us.0 { loc.0.x as f32 } else { GRID_H - loc.0.x as f32 - 1. };
-            let col = loc.0.y as f32;
+    for (GridLocation { owner, coord }, mut t) in &mut cards {
+        // 5x4 -> 20x12   4x/3x
+        let row = if *owner == us.0 { coord.x as f32 } else { GRID_H - coord.x as f32 - 1. };
+        let col = coord.y as f32;
 
-            let scale_w = BATTLEFIELD_W / GRID_W as f32;
-            let scale_h = BATTLEFIELD_H / GRID_H as f32;
+        let scale_w = BATTLEFIELD_W / GRID_W as f32;
+        let scale_h = BATTLEFIELD_H / GRID_H as f32;
 
-            t.translation.x = ((col + 0.5) * scale_w) - (BATTLEFIELD_W / 2.);
-            t.translation.y = ((row + 0.5) * scale_h) - (BATTLEFIELD_H / 2.);
-        })
+        t.translation.x = ((col + 0.5) * scale_w) - (BATTLEFIELD_W / 2.);
+        t.translation.y = ((row + 0.5) * scale_h) - (BATTLEFIELD_H / 2.);
     }
 }
 
@@ -222,13 +218,14 @@ pub struct Scroll {
 pub fn create_ability_overlay(
     event: Listener<Pointer<Click>>,
     mut commands: Commands,
-    cards: Query<(&Abilities, &GridLocation, &MatchId, Relations<OwnedBy>)>,
-    players: Query<(&PlayerId, Has<CurrentTurn>)>,
+    cards: Query<(&Abilities, &GridLocation, &MatchId)>,
+    current_turns: Query<Has<CurrentTurn>>,
+    mut player_idx: Index<PlayerId>,
     us: Res<Us>,
     window: Query<&Window>,
 ) {
     let card_entity = event.listener();
-    let (abilities, grid_loc, match_id, ownership) = cards.get(card_entity).unwrap();
+    let (abilities, grid_loc, match_id) = cards.get(card_entity).unwrap();
     let window = window.single();
 
     let size = Vec2::new(0.2 * window.width(), 0.4 * window.height());
@@ -243,17 +240,8 @@ pub fn create_ability_overlay(
         mouse_pos.x - size.x - side_offest
     };
 
-    let (mut owner, mut owners_turn) = (None, None);
-    ownership.join::<Reverse<OwnedBy>>(&players).for_each(|(o, t)| {
-        assert!(owner.is_none());
-        owner = Some(*o);
-        owners_turn = Some(t);
-    });
-    let buttons_active = owners_turn.unwrap() && owner.unwrap() == us.0;
-
-    let our_mid = *match_id;
-    let our_pid = us.0;
-    let our_grid_loc = grid_loc.0;
+    let owners_turn = current_turns.get(player_idx.lookup_single(&grid_loc.owner)).unwrap();
+    let buttons_active = owners_turn && grid_loc.owner == us.0;
 
     let scrollbar = commands
         .spawn((Name::new("scrollbar"), NodeBundle {

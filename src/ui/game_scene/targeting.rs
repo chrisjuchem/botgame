@@ -1,4 +1,3 @@
-use aery::prelude::{Up, *};
 use bevy::{
     ecs::{query::WorldQuery, system::SystemParam},
     prelude::*,
@@ -6,13 +5,13 @@ use bevy::{
 };
 use bevy_mod_index::prelude::Index;
 use bevy_mod_picking::prelude::*;
+use bevy_renet::renet::RenetClient;
 
 use crate::{
     cards::Ability,
-    match_sim::{
-        Abilities, BaseCard, Energy, GridLocation, Health, OwnedBy, PlayerId, PlayerIndex, Us,
-    },
-    ui::game_scene::{create_ability_overlay, BATTLEFIELD_H, BATTLEFIELD_W},
+    match_sim::{Abilities, BaseCard, Energy, GridLocation, Health, MatchId, PlayerId, Us},
+    network::{messages::ActivateAbilityMessage, ClientExt},
+    ui::game_scene::{create_ability_overlay, BATTLEFIELD_H, BATTLEFIELD_W, GRID_H, GRID_W},
 };
 
 #[derive(Component)]
@@ -26,17 +25,16 @@ pub struct TargetingIndicator;
 pub struct Targeting {
     pub source: Entity,
     pub ability_idx: usize,
-    pub chosen: Vec<(UVec2, PlayerId)>,
+    pub chosen: Vec<GridLocation>,
 }
 
 pub fn start_targeting(
     targeting: Res<Targeting>,
-    cards: Query<(Entity, &GridLocation, Relations<OwnedBy>), With<BaseCard>>,
+    cards: Query<(Entity, &GridLocation), With<BaseCard>>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     players: Query<&PlayerId>,
-    mut player_idx: Index<PlayerIndex>,
 ) {
     if !targeting.is_added() {
         return;
@@ -116,9 +114,9 @@ pub fn start_targeting(
 
     let mut indicators = HashMap::new();
     for p in players.iter() {
-        for x in 0..2 {
-            for y in 0..5 {
-                let target = (UVec2 { x, y }, *p);
+        for x in 0..(GRID_H as u32 / 2) {
+            for y in 0..(GRID_W as u32) {
+                let loc = GridLocation { coord: UVec2 { x, y }, owner: *p };
                 let e = commands
                     .spawn((Name::new("floor_targeting_helper"), TargetingIndicator, PbrBundle {
                         mesh: meshes.add(Mesh::from(shape::Plane::from_size(BATTLEFIELD_H / 4.5))),
@@ -132,66 +130,53 @@ pub fn start_targeting(
                         ..default()
                     }))
                     .id();
-                indicators.insert(target, e);
+                indicators.insert(loc, e);
             }
         }
     }
 
-    for (e, loc, ownership) in &cards {
+    for (e, loc) in &cards {
         let mut cmds = commands.entity(e);
-        let mut pid = None;
-        ownership.join::<Up<OwnedBy>>(&players).for_each(|p| pid = Some(*p));
-        let target = (loc.0, pid.unwrap());
-
-        cmds.add_child(*indicators.get(&target).unwrap());
-        indicators.insert(target, e);
+        cmds.add_child(*indicators.get(loc).unwrap());
+        indicators.insert(*loc, e);
         // remove overlay click handler
         cmds.remove::<On<Pointer<Click>>>();
     }
 
-    for ((l, p), e) in indicators.into_iter() {
-        let p_e = player_idx.lookup_single(&p);
+    for (loc, e) in indicators.into_iter() {
+        commands.entity(e).insert(loc).insert(On::<Pointer<Click>>::run(
+            |listener: Listener<Pointer<Click>>,
+             cards: Query<(Entity, &GridLocation, Option<&Children>)>,
+             mut targeting: ResMut<Targeting>,
+             mut indicators: Query<&mut Handle<StandardMaterial>, With<TargetingIndicator>>,
+             mut materials: ResMut<Assets<StandardMaterial>>| {
+                let (card_e, loc, children) = cards.get(listener.listener()).unwrap();
 
-        commands.entity(e).insert(GridLocation(l)).set::<OwnedBy>(p_e).insert(
-            On::<Pointer<Click>>::run(
-                |listener: Listener<Pointer<Click>>,
-                 cards: Query<(Entity, &GridLocation, Relations<OwnedBy>, Option<&Children>)>,
-                 players: Query<&PlayerId>,
-                 mut targeting: ResMut<Targeting>,
-                 mut indicators: Query<&mut Handle<StandardMaterial>, With<TargetingIndicator>>,
-                 mut materials: ResMut<Assets<StandardMaterial>>| {
-                    let (card_e, grid, ownership, children) =
-                        cards.get(listener.listener()).unwrap();
-                    let mut pid = None;
-                    ownership.join::<Up<OwnedBy>>(&players).for_each(|p| pid = Some(*p));
-                    let target = (grid.0, pid.unwrap());
-
-                    // find indicator between when either
-                    //   - this listener is the indicator
-                    //   - this card's indicator is its child
-                    let mut indicator_iter = indicators.iter_many_mut(
-                        children.iter().flat_map(|c| c.iter()).chain(std::iter::once(&card_e)),
-                    );
-                    if targeting.chosen.contains(&target) {
-                        targeting.chosen.retain(|x| *x != target);
-                        while let Some(mut i) = indicator_iter.fetch_next() {
-                            *i = materials.add(StandardMaterial {
-                                perceptual_roughness: 0.9,
-                                ..Color::rgba(0.8, 0., 0., 0.1).into()
-                            });
-                        }
-                    } else {
-                        targeting.chosen.push(target);
-                        while let Some(mut i) = indicator_iter.fetch_next() {
-                            *i = materials.add(StandardMaterial {
-                                perceptual_roughness: 0.9,
-                                ..Color::rgba(0.8, 0., 0., 0.6).into()
-                            });
-                        }
+                // find indicator between when either
+                //   - this listener is the indicator
+                //   - this card's indicator is its child
+                let mut indicator_iter = indicators.iter_many_mut(
+                    children.iter().flat_map(|c| c.iter()).chain(std::iter::once(&card_e)),
+                );
+                if targeting.chosen.contains(loc) {
+                    targeting.chosen.retain(|x| x != loc);
+                    while let Some(mut i) = indicator_iter.fetch_next() {
+                        *i = materials.add(StandardMaterial {
+                            perceptual_roughness: 0.9,
+                            ..Color::rgba(0.8, 0., 0., 0.1).into()
+                        });
                     }
-                },
-            ),
-        );
+                } else {
+                    targeting.chosen.push(*loc);
+                    while let Some(mut i) = indicator_iter.fetch_next() {
+                        *i = materials.add(StandardMaterial {
+                            perceptual_roughness: 0.9,
+                            ..Color::rgba(0.8, 0., 0., 0.6).into()
+                        });
+                    }
+                }
+            },
+        ));
     }
 }
 
@@ -225,8 +210,10 @@ pub fn check_targets(
 fn submit_targets(
     ui: Query<Entity, With<TargetingUI>>,
     indicators: Query<Entity, With<TargetingIndicator>>,
-    cards: Query<Entity, With<BaseCard>>,
+    cards: Query<(Entity, &MatchId, &GridLocation), With<BaseCard>>,
     mut commands: Commands,
+    mut client: ResMut<RenetClient>,
+    targeting: Res<Targeting>,
 ) {
     commands.entity(ui.single()).despawn_recursive();
     for e in &indicators {
@@ -234,15 +221,21 @@ fn submit_targets(
     }
     commands.remove_resource::<Targeting>();
 
-    for card in &cards {
+    for (card_e, _, _) in &cards {
         // restore overlay click handler
-        commands.entity(card).insert(On::<Pointer<Click>>::run(create_ability_overlay));
+        commands.entity(card_e).insert(On::<Pointer<Click>>::run(create_ability_overlay));
     }
 
-    // todo: send activated msg
+    let (_, mid, loc) = cards.get(targeting.source).unwrap();
+    client.send(ActivateAbilityMessage {
+        match_id: *mid,
+        unit_location: loc.coord,
+        ability_idx: targeting.ability_idx,
+        targets: targeting.chosen.clone(), // todo: mem swap
+    })
 }
 
-#[derive(WorldQuery)]
+#[derive(WorldQuery, Debug)]
 pub struct CardQuery {
     pub entity: Entity,
     pub grid_loc: &'static GridLocation,

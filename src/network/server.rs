@@ -1,6 +1,5 @@
 use std::{net::UdpSocket, time::SystemTime};
 
-use aery::prelude::*;
 use bevy::{
     log,
     prelude::*,
@@ -18,10 +17,10 @@ use bevy_renet::{
 use extension_trait::extension_trait;
 
 use crate::{
-    cards::{Ability, Card, Effect, Target},
+    cards::{Ability, Card, Effect},
     match_sim::{
-        Abilities, CurrentTurn, EffectEvent, GridLocation, MatchId, NewTurnEvent, OwnedBy,
-        PlayerId, PlayerIndex, StartMatchEvent,
+        Abilities, CurrentTurn, EffectEvent, GridLocation, MatchId, NewTurnEvent, PlayerId,
+        StartMatchEvent,
     },
     network::messages::{
         ActivateAbilityMessage, EffectMessage, JoinMatchmakingQueueMessage, MatchStartedMessage,
@@ -185,7 +184,7 @@ fn matchmaking(
         effects.send(EffectEvent {
             match_id,
             effect: Effect::SummonCard { card: card.take().unwrap() },
-            targets: vec![Target { player: *pid, location: UVec2::new(0, *rand) }],
+            targets: vec![GridLocation { owner: *pid, coord: UVec2::new(0, *rand) }],
         });
     }
 
@@ -246,8 +245,9 @@ fn process_abilities(
     mut effects: EventWriter<EffectEvent>,
     mut turns: EventWriter<NewTurnEvent>,
     cards: Query<(&GridLocation, &Abilities)>,
-    players: Query<(Has<CurrentTurn>, Relations<OwnedBy>)>,
-    mut player_idx: Index<PlayerIndex>,
+    cur_turns: Query<Has<CurrentTurn>>,
+    mut player_idx: Index<PlayerId>,
+    mut loc_idx: Index<GridLocation>,
     clients: Res<ConnectedClients>,
     client_map: Res<MatchClientMap>,
     mut server: ResMut<RenetServer>,
@@ -258,24 +258,20 @@ fn process_abilities(
             continue;
         };
 
-        let (cur_turn, players_cards) = players.get(player_idx.lookup_single(&pid)).unwrap();
-        if !cur_turn {
+        if !cur_turns.get(player_idx.lookup_single(&pid)).unwrap() {
             server.send_error(&client_id, "Not your turn.");
             continue;
         }
 
-        let mut ability_list = None;
-        players_cards.join::<OwnedBy>(&cards).for_each(|(grid_loc, abilities)| {
-            if grid_loc.0 == activation.unit_location {
-                ability_list = Some(abilities.0.clone())
-            }
-        });
-        let Some(ability_list) = ability_list else {
+        let card = cards.get(
+            loc_idx.lookup_single(&GridLocation { owner: *pid, coord: activation.unit_location }),
+        );
+        let Ok((_, abilities)) = card else {
             server.send_error(&client_id, "No unit there.");
             continue;
         };
 
-        let Some(ability) = ability_list.get(activation.ability_idx) else {
+        let Some(ability) = abilities.0.get(activation.ability_idx) else {
             server.send_error(&client_id, "No such ability.");
             continue;
         };

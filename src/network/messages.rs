@@ -2,9 +2,9 @@ use bevy::prelude::UVec2;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards::{Card, Effect, Target},
+    cards::{Card, Effect},
     make_enum,
-    match_sim::{MatchId, PlayerId},
+    match_sim::{GridLocation, MatchId, PlayerId},
 };
 
 make_enum! {
@@ -36,7 +36,7 @@ pub struct MatchStartedMessage {
 pub struct EffectMessage {
     pub match_id: MatchId,
     pub effect: Effect,
-    pub targets: Vec<Target>,
+    pub targets: Vec<GridLocation>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,7 +50,7 @@ pub struct ActivateAbilityMessage {
     pub match_id: MatchId,
     pub unit_location: UVec2,
     pub ability_idx: usize,
-    pub targets: Vec<Target>,
+    pub targets: Vec<GridLocation>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

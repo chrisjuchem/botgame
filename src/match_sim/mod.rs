@@ -1,25 +1,23 @@
-use aery::prelude::*;
 use bevy::prelude::*;
 use bevy_mod_index::prelude::*;
 use extension_trait::extension_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards::{mesh::NeedsMesh, Ability, Card, Effect, Target},
+    cards::{mesh::NeedsMesh, Ability, Card, Effect},
     utils::Uuid,
 };
 
 pub struct MatchSimPlugin;
 impl Plugin for MatchSimPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(Aery);
         init_events(app);
         app.add_systems(Update, (start_match, apply_deferred, effects, next_turn).chain());
         app.add_systems(Update, cleanup_match);
     }
 }
 
-// ====== Match Components/Relations ======
+// ====== Match Components ======
 
 #[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct MatchId(Uuid);
@@ -28,12 +26,10 @@ impl MatchId {
         Self(Uuid::new())
     }
 }
-
-pub struct MatchIndex;
-impl IndexInfo for MatchIndex {
+impl IndexInfo for MatchId {
     type Components = &'static MatchId;
     type Value = MatchId;
-    type Storage = HashmapStorage<MatchIndex>;
+    type Storage = HashmapStorage<Self>;
     type RefreshPolicy = SimpleRefreshPolicy;
 
     fn value(c: &MatchId) -> Self::Value {
@@ -48,12 +44,10 @@ impl PlayerId {
         Self(Uuid::new())
     }
 }
-
-pub struct PlayerIndex;
-impl IndexInfo for PlayerIndex {
+impl IndexInfo for PlayerId {
     type Components = &'static PlayerId;
     type Value = PlayerId;
-    type Storage = HashmapStorage<PlayerIndex>;
+    type Storage = HashmapStorage<Self>;
     type RefreshPolicy = SimpleRefreshPolicy;
 
     fn value(c: &PlayerId) -> Self::Value {
@@ -67,37 +61,37 @@ pub struct CurrentTurn;
 #[derive(Resource)]
 pub struct Us(pub PlayerId);
 
-// ====== Card Components/Relations ======
-
-#[derive(Relation)]
-pub struct OwnedBy;
+// ====== Card Components ======
 
 #[derive(Component)]
 pub struct BaseCard(pub Card);
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Health(pub u32);
 
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct Energy {
     pub current: u32,
     pub max: u32,
 }
 
-#[derive(Component)]
-pub struct GridLocation(pub UVec2);
+#[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
+pub struct GridLocation {
+    pub coord: UVec2,
+    pub owner: PlayerId,
+}
 impl IndexInfo for GridLocation {
-    type Components = (GridLocation, PlayerId);
-    type Value = (UVec2, PlayerId);
-    type Storage = HashmapStorage<GridLocation>;
-    type RefreshPolicy = SimpleRefreshPolicy;
+    type Components = &'static GridLocation;
+    type Value = GridLocation;
+    type Storage = HashmapStorage<Self>;
+    type RefreshPolicy = ConservativeRefreshPolicy;
 
-    fn value((loc, pid): (&GridLocation, &PlayerId)) -> Self::Value {
-        (loc.0, *pid)
+    fn value(g: &GridLocation) -> Self::Value {
+        *g
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Debug)]
 pub struct Abilities(pub Vec<Ability>);
 
 // ====== Events ======
@@ -112,7 +106,7 @@ pub struct StartMatchEvent {
 pub struct EffectEvent {
     pub match_id: MatchId,
     pub effect: Effect,
-    pub targets: Vec<Target>,
+    pub targets: Vec<GridLocation>,
 }
 
 #[derive(Event, Clone)]
@@ -162,18 +156,13 @@ fn next_turn(
     }
 }
 
-fn effects(
-    mut commands: Commands,
-    mut e: EventReader<EffectEvent>,
-    mut player_index: Index<PlayerIndex>,
-) {
+fn effects(mut commands: Commands, mut e: EventReader<EffectEvent>) {
     for EffectEvent { match_id, effect, targets } in e.read() {
         debug!("effect {effect:?} with targets {targets:?}");
         match effect {
             Effect::SummonCard { card } => {
                 for t in targets {
-                    let e = player_index.lookup_single(&t.player);
-                    commands.spawn_card(card.clone(), *match_id, e, t.location)
+                    commands.spawn_card(card.clone(), *match_id, *t)
                 }
             },
             _ => unimplemented!(),
@@ -187,7 +176,7 @@ fn effects(
 fn cleanup_match(
     mut commands: Commands,
     mut e: EventReader<CleanupMatchEvent>,
-    mut match_index: Index<MatchIndex>,
+    mut match_index: Index<MatchId>,
 ) {
     for CleanupMatchEvent { match_id } in e.read() {
         for entity in match_index.lookup(match_id) {
@@ -200,18 +189,16 @@ fn cleanup_match(
 
 #[extension_trait]
 impl CommandExts for Commands<'_, '_> {
-    fn spawn_card(&mut self, card: Card, mid: MatchId, owner: Entity, loc: UVec2) {
-        let card = self
-            .spawn((
-                mid,
-                Name::new(card.name.to_string()),
-                Health(card.hp),
-                Energy { current: 1, max: card.max_energy },
-                Abilities(card.abilities.clone()),
-                BaseCard(card),
-                (GridLocation(loc), SpatialBundle::default()),
-                NeedsMesh,
-            ))
-            .set::<OwnedBy>(owner);
+    fn spawn_card(&mut self, card: Card, mid: MatchId, loc: GridLocation) {
+        let card = self.spawn((
+            mid,
+            Name::new(card.name.to_string()),
+            Health(card.hp),
+            Energy { current: 1, max: card.max_energy },
+            Abilities(card.abilities.clone()),
+            BaseCard(card),
+            (loc, SpatialBundle::default()),
+            NeedsMesh,
+        ));
     }
 }

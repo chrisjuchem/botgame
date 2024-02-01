@@ -3,7 +3,6 @@ pub mod text;
 
 use std::fmt::{Debug, Formatter};
 
-use bevy::math::UVec2;
 use bevy_mod_index::index::Index;
 use serde::{
     de::{Error, Visitor},
@@ -139,12 +138,6 @@ pub enum EffectType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Target {
-    pub(crate) player: PlayerId,
-    pub(crate) location: UVec2,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TargetRules {
     amount: TargetAmount,
     filter: TargetFilter,
@@ -153,8 +146,8 @@ pub struct TargetRules {
 impl TargetRules {
     pub(crate) fn validate(
         &self,
-        targets: &[(UVec2, PlayerId)],
-        idx: &mut Index<GridLocation>,
+        targets: &[GridLocation],
+        loc_idx: &mut Index<GridLocation>,
         cards: &Cards,
         us: PlayerId,
     ) -> bool {
@@ -162,11 +155,9 @@ impl TargetRules {
             return false;
         }
 
-        targets.iter().all(|loc_pid| {
-            let card = idx.lookup(loc_pid).next().map(|e| cards.cards.get(e).unwrap());
-            let pid = loc_pid.1;
-
-            self.filter.validate(card.as_ref(), pid, us)
+        targets.iter().all(|loc| {
+            let card = loc_idx.lookup(loc).next().and_then(|e| cards.cards.get(e).ok());
+            self.filter.validate(card.as_ref(), loc.owner, us)
         })
     }
 }

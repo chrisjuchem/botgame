@@ -13,7 +13,6 @@ default= ["bevy_dylib"]
 bevy_dylib=["bevy/dynamic_linking"]
 
 [dependencies]
-aery = "0.5.2"
 bevy = "0.12"
 bevy-inspector-egui = "0.22.1"
 bevy_framepace = "0.14.1"
