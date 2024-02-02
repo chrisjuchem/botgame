@@ -1,10 +1,10 @@
-use bevy::prelude::*;
+use bevy::{ecs::query::WorldQuery, prelude::*};
 use bevy_mod_index::prelude::*;
 use extension_trait::extension_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards::{mesh::NeedsMesh, Ability, Card, Effect},
+    cards::{mesh::NeedsMesh, Ability, Card, Effect, PassiveEffect},
     utils::Uuid,
 };
 
@@ -94,6 +94,21 @@ impl IndexInfo for GridLocation {
 #[derive(Component, Clone, Debug)]
 pub struct Abilities(pub Vec<Ability>);
 
+#[derive(WorldQuery, Debug)]
+#[world_query(mutable, derive(Debug))]
+pub struct CardQuery {
+    pub entity: Entity,
+    pub name: &'static Name,
+    pub grid_loc: &'static mut GridLocation,
+    pub abilities: &'static mut Abilities,
+    pub health: &'static mut Health,
+    pub energy: &'static mut Energy,
+}
+impl CardQuery {}
+
+pub type Cards<'w, 's> = Query<'w, 's, CardQueryReadOnly>;
+pub type CardsMut<'w, 's> = Query<'w, 's, CardQuery>;
+
 // ====== Events ======
 
 #[derive(Event, Clone)]
@@ -156,7 +171,13 @@ fn next_turn(
     }
 }
 
-fn effects(mut commands: Commands, mut e: EventReader<EffectEvent>) {
+fn effects(
+    mut commands: Commands,
+    mut e: EventReader<EffectEvent>,
+
+    mut cards_and_loc_idx_and_match_idx: ParamSet<(CardsMut, Index<GridLocation>, Index<MatchId>)>,
+    us: Option<Res<Us>>,
+) {
     for EffectEvent { match_id, effect, targets } in e.read() {
         debug!("effect {effect:?} with targets {targets:?}");
         match effect {
@@ -165,8 +186,42 @@ fn effects(mut commands: Commands, mut e: EventReader<EffectEvent>) {
                     commands.spawn_card(card.clone(), *match_id, *t)
                 }
             },
+            Effect::Attack { effect_type, damage } => {
+                for t in targets {
+                    let target_e = cards_and_loc_idx_and_match_idx.p1().lookup_single(t);
+                    let mut final_factor = 1.;
+
+                    let match_entities =
+                        cards_and_loc_idx_and_match_idx.p2().lookup(match_id).collect::<Vec<_>>();
+                    let cards = cards_and_loc_idx_and_match_idx.p0();
+                    for (a, a_owner) in cards
+                        .iter_many(match_entities)
+                        .flat_map(|card| card.abilities.0.iter().map(|a| (a, card.grid_loc.owner)))
+                    {
+                        if let Ability::Passive {
+                            passive_effect:
+                                PassiveEffect::DamageResistance { effect_type: effect_filter, factor },
+                            target_filter,
+                        } = a
+                        {
+                            if *effect_type == *effect_filter
+                                && target_filter.validate(
+                                    cards.get(target_e).ok().as_ref(),
+                                    t.owner,
+                                    a_owner,
+                                )
+                            {
+                                final_factor *= factor;
+                            }
+                        }
+                    }
+
+                    let final_dmg = *damage as f32 * final_factor;
+                    cards_and_loc_idx_and_match_idx.p0().get_mut(target_e).unwrap().health.0 -=
+                        final_dmg as u32;
+                }
+            },
             _ => unimplemented!(),
-            // Effect::Attack { .. } => {}
             // Effect::GrantAbility { .. } => {}
             // Effect::MultipleEffects { .. } => {}
         }

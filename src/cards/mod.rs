@@ -9,10 +9,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::{
-    match_sim::{GridLocation, PlayerId},
-    ui::game_scene::targeting::{CardQueryItem, Cards},
-};
+use crate::match_sim::{CardQueryReadOnlyItem, Cards, GridLocation, PlayerId};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Card {
@@ -129,7 +126,7 @@ pub enum PassiveEffect {
     // ModifyAbilityCost ??
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub enum EffectType {
     Physical,
     Explosion,
@@ -149,15 +146,15 @@ impl TargetRules {
         targets: &[GridLocation],
         loc_idx: &mut Index<GridLocation>,
         cards: &Cards,
-        us: PlayerId,
+        effect_owner: PlayerId,
     ) -> bool {
         if !self.amount.validate(targets.len()) {
             return false;
         }
 
         targets.iter().all(|loc| {
-            let card = loc_idx.lookup(loc).next().and_then(|e| cards.cards.get(e).ok());
-            self.filter.validate(card.as_ref(), loc.owner, us)
+            let card = loc_idx.lookup(loc).next().and_then(|e| cards.get(e).ok());
+            self.filter.validate(card.as_ref(), loc.owner, effect_owner)
         })
     }
 }
@@ -189,15 +186,24 @@ pub enum TargetFilter {
     Or(Vec<TargetFilter>),
 }
 impl TargetFilter {
-    pub fn validate(&self, card: Option<&CardQueryItem>, owner: PlayerId, us: PlayerId) -> bool {
+    pub fn validate(
+        &self,
+        card: Option<&CardQueryReadOnlyItem>,
+        target_owner: PlayerId,
+        effect_owner: PlayerId,
+    ) -> bool {
         match self {
             TargetFilter::Any => true,
-            TargetFilter::Friendly => owner == us,
-            TargetFilter::Enemy => owner != us,
+            TargetFilter::Friendly => target_owner == effect_owner,
+            TargetFilter::Enemy => target_owner != effect_owner,
             TargetFilter::Unoccupied => card.is_none(),
             TargetFilter::Occupied => card.is_some(),
-            TargetFilter::And(conds) => conds.iter().all(|c| c.validate(card, owner, us)),
-            TargetFilter::Or(conds) => conds.iter().any(|c| c.validate(card, owner, us)),
+            TargetFilter::And(conds) => {
+                conds.iter().all(|c| c.validate(card, target_owner, effect_owner))
+            },
+            TargetFilter::Or(conds) => {
+                conds.iter().any(|c| c.validate(card, target_owner, effect_owner))
+            },
         }
     }
 }

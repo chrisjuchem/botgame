@@ -106,23 +106,23 @@ pub struct StatsPanel(pub Entity);
 pub struct HoverPanel(pub Entity);
 
 pub fn update_stat_overlays(
-    cards: Query<(&Energy, &Health, &Transform)>,
+    cards: Query<(&Name, &Energy, &Health, &Transform)>,
     mut stats: Query<(&mut Text, &mut Style, &Node, &StatsPanel)>,
     camera: Query<(&Camera, &GlobalTransform)>,
 ) {
     let (cam, cam_pos) = camera.single();
 
     for (mut txt, mut style, node, source) in &mut stats {
-        let (src_e, src_h, src_t) = cards.get(source.0).unwrap();
+        let (name, energy, health, transform) = cards.get(source.0).unwrap();
 
-        let Some(coord) = cam.world_to_viewport(cam_pos, src_t.translation) else { continue };
+        let Some(coord) = cam.world_to_viewport(cam_pos, transform.translation) else { continue };
         style.position_type = PositionType::Absolute;
         style.top = Val::Px(coord.y + 15.);
         style.left = Val::Px(coord.x - (node.size().x / 2.));
 
         *txt = Text {
             sections: vec![TextSection::new(
-                format!("energy: {}/{}\n {} hp", src_e.current, src_e.max, src_h.0),
+                format!("{}\nenergy: {}/{}\n {} hp", name, energy.current, energy.max, health.0),
                 TextStyle { font_size: 15.0, color: Color::WHITE, ..default() },
             )],
             alignment: TextAlignment::Center,

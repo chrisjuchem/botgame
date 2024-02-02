@@ -1,15 +1,11 @@
-use bevy::{
-    ecs::{query::WorldQuery, system::SystemParam},
-    prelude::*,
-    utils::HashMap,
-};
+use bevy::{prelude::*, utils::HashMap};
 use bevy_mod_index::prelude::Index;
 use bevy_mod_picking::prelude::*;
 use bevy_renet::renet::RenetClient;
 
 use crate::{
     cards::Ability,
-    match_sim::{Abilities, BaseCard, Energy, GridLocation, Health, MatchId, PlayerId, Us},
+    match_sim::{BaseCard, Cards, GridLocation, MatchId, PlayerId, Us},
     network::{messages::ActivateAbilityMessage, ClientExt},
     ui::game_scene::{create_ability_overlay, BATTLEFIELD_H, BATTLEFIELD_W, GRID_H, GRID_W},
 };
@@ -191,7 +187,7 @@ pub fn check_targets(
     let (btn, mut btn_bg, btn_active) = btn.single_mut();
 
     let ability =
-        cards.cards.get(targeting.source).unwrap().abilities.0.get(targeting.ability_idx).unwrap();
+        cards.get(targeting.source).unwrap().abilities.0.get(targeting.ability_idx).unwrap();
     let Ability::Activated { target_rules, .. } = ability else {
         panic!("Activated passive abillity!");
     };
@@ -233,27 +229,4 @@ fn submit_targets(
         ability_idx: targeting.ability_idx,
         targets: targeting.chosen.clone(), // todo: mem swap
     })
-}
-
-#[derive(WorldQuery, Debug)]
-pub struct CardQuery {
-    pub entity: Entity,
-    pub grid_loc: &'static GridLocation,
-    pub abilities: &'static Abilities,
-    pub health: &'static Health,
-    pub energy: &'static Energy,
-    // pub ownership: Relations<OwnedBy>,
-}
-impl CardQuery {
-    // pub fn owner(&mut self, players: Query<&PlayerId>) -> PlayerId {
-    //     let mut ret = None;
-    //     self.ownership.join::<Up<OwnedBy>>().for_each(|pid| ret = Some(pid));
-    //     ret.unwrap()
-    // }
-}
-
-#[derive(SystemParam)]
-pub struct Cards<'w, 's> {
-    pub cards: Query<'w, 's, CardQuery>,
-    // pub players: Query<'w, 's, &'static PlayerId>,
 }
