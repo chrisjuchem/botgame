@@ -1,4 +1,7 @@
-use std::{net::UdpSocket, time::SystemTime};
+use std::{
+    net::{IpAddr, Ipv4Addr, SocketAddr, UdpSocket},
+    time::SystemTime,
+};
 
 use bevy::{log, prelude::*};
 use bevy_renet::{
@@ -10,11 +13,21 @@ use bevy_renet::{
     RenetClientPlugin,
 };
 use extension_trait::extension_trait;
+use serde::Deserialize;
 
 use crate::{
     match_sim::{EffectEvent, NewTurnEvent, StartMatchEvent, Us},
-    network::messages::{EffectMessage, NetworkMessage, NewTurnMessage, ProtocolErrorMessage},
+    network::{
+        messages::{EffectMessage, NetworkMessage, NewTurnMessage, ProtocolErrorMessage},
+        PORT,
+    },
 };
+
+#[derive(Deserialize)]
+pub struct ClientConfig {
+    server_ip: IpAddr,
+    client_id: u64,
+}
 
 pub struct ClientPlugin;
 impl Plugin for ClientPlugin {
@@ -22,10 +35,15 @@ impl Plugin for ClientPlugin {
         app.add_plugins((RenetClientPlugin, NetcodeClientPlugin));
         app.insert_resource(RenetClient::new(ConnectionConfig::default()));
 
-        let socket = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let config_path = std::env::args().nth(1).expect("Must provide config path!");
+        let config: ClientConfig = serde_json::from_reader(
+            std::fs::File::open(config_path).expect("could not open config file"),
+        )
+        .expect("invalid config");
+        let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).unwrap();
         let authentication = ClientAuthentication::Unsecure {
-            server_addr: "127.0.0.1:5000".parse().unwrap(),
-            client_id: socket.local_addr().unwrap().port() as u64,
+            server_addr: SocketAddr::new(config.server_ip, PORT),
+            client_id: config.client_id,
             user_data: None,
             protocol_id: 0,
         };

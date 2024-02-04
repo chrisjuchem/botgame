@@ -1,4 +1,7 @@
-use std::{net::UdpSocket, time::SystemTime};
+use std::{
+    net::{Ipv4Addr, SocketAddr, UdpSocket},
+    time::SystemTime,
+};
 
 use bevy::{
     log,
@@ -22,9 +25,12 @@ use crate::{
         Abilities, CurrentTurn, EffectEvent, GridLocation, MatchId, NewTurnEvent, PlayerId,
         StartMatchEvent,
     },
-    network::messages::{
-        ActivateAbilityMessage, EffectMessage, JoinMatchmakingQueueMessage, MatchStartedMessage,
-        NetworkMessage, NewTurnMessage, ProtocolErrorMessage,
+    network::{
+        messages::{
+            ActivateAbilityMessage, EffectMessage, JoinMatchmakingQueueMessage,
+            MatchStartedMessage, NetworkMessage, NewTurnMessage, ProtocolErrorMessage,
+        },
+        PORT,
     },
 };
 
@@ -34,7 +40,7 @@ impl Plugin for ServerPlugin {
         app.add_plugins((RenetServerPlugin, NetcodeServerPlugin));
         app.insert_resource(RenetServer::new(ConnectionConfig::default()));
 
-        let server_addr = "127.0.0.1:5000".parse().unwrap();
+        let server_addr = SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), PORT);
         let socket = UdpSocket::bind(server_addr).unwrap();
         let server_config = ServerConfig {
             current_time: SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap(),

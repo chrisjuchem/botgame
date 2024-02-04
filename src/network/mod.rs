@@ -5,6 +5,8 @@ mod server;
 pub use client::{ClientExt, ClientPlugin};
 pub use server::{ServerExt, ServerPlugin};
 
+pub const PORT: u16 = 17922;
+
 pub struct NwDebugPlugin;
 impl bevy::app::Plugin for NwDebugPlugin {
     fn build(&self, app: &mut bevy::app::App) {
