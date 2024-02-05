@@ -12,7 +12,11 @@ use crate::{
         Abilities, BaseCard, CurrentTurn, Energy, GridLocation, Health, MatchId, PlayerId,
         StartMatchEvent, Us,
     },
-    ui::{game_scene::targeting::Targeting, SceneState},
+    ui::{
+        button::{ClickHandler, GameButton},
+        game_scene::targeting::Targeting,
+        SceneState,
+    },
 };
 
 pub fn transition_to_match(e: EventReader<StartMatchEvent>, mut s: ResMut<NextState<SceneState>>) {
@@ -280,38 +284,30 @@ pub fn create_ability_overlay(
             }))
             .with_children(|base| {
                 for (i, ability) in abilities.0.iter().enumerate() {
-                    let mut button = base.spawn(TextBundle {
-                        style: Style { margin, ..default() },
-                        text: Text::from_section(ability.full_text(), TextStyle {
-                            font_size: 15.0,
-                            color: Color::WHITE,
+                    base.spawn((
+                        TextBundle {
+                            style: Style { margin, ..default() },
+                            text: Text::from_section(ability.full_text(), TextStyle {
+                                font_size: 15.0,
+                                color: Color::WHITE,
+                                ..default()
+                            }),
                             ..default()
-                        }),
-                        background_color: BackgroundColor(Color::GRAY),
-                        ..default()
-                    });
-
-                    if buttons_active {
-                        button.insert((
-                            On::<Pointer<Over>>::listener_component_mut::<BackgroundColor>(
-                                |e, color| {
-                                    color.0 = Color::hex("#5aad65").unwrap();
-                                },
-                            ),
-                            On::<Pointer<Out>>::listener_component_mut::<BackgroundColor>(
-                                |e, color| {
-                                    color.0 = Color::GRAY;
-                                },
-                            ),
-                            On::<Pointer<Click>>::run(move |mut commands: Commands| {
+                        },
+                        GameButton {
+                            bg_color: Color::GRAY,
+                            hover_color: Color::hex("#5aad65").unwrap(),
+                            disabled_color: Color::GRAY,
+                            click_handler: ClickHandler::new(move |mut commands: Commands| {
                                 commands.insert_resource(Targeting {
                                     source: card_entity,
                                     ability_idx: i,
                                     chosen: vec![],
                                 })
                             }),
-                        ));
-                    }
+                            active: buttons_active,
+                        },
+                    ));
                 }
             });
         })

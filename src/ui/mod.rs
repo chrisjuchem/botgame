@@ -1,20 +1,23 @@
+pub mod button;
 pub mod game_scene;
 pub mod main_menu;
 
 use bevy::prelude::*;
+use bevy_eventlistener::event_dispatcher::EventDispatcher;
 use bevy_framepace::FramepacePlugin;
-use bevy_mod_picking::DefaultPickingPlugins;
+use bevy_mod_picking::prelude::{Pointer, *};
 
 use crate::{
     cards::mesh::spawn_card_mesh,
     match_sim::StartMatchEvent,
     ui::{
+        button::update_buttons,
         game_scene::{
             scroll, setup_new_cards, spawn_match,
             targeting::{check_targets, start_targeting, Targeting},
             transition_to_match, update_card_transforms, update_stat_overlays, MatchScenery,
         },
-        main_menu::{handle_button, spawn_main_menu, MainMenu},
+        main_menu::{spawn_main_menu, MainMenu},
     },
 };
 
@@ -37,7 +40,15 @@ impl Plugin for ScenePlugin {
         app.add_systems(OnExit(SceneState::MainMenu), despawn_all_with_marker::<MainMenu>);
         app.add_systems(OnEnter(SceneState::Match), spawn_match);
         app.add_systems(OnExit(SceneState::Match), despawn_all_with_marker::<MatchScenery>);
-        app.add_systems(Update, handle_button.run_if(in_state(SceneState::MainMenu)));
+        // Hack to ensure `Out` handlers run before `Over`
+        app.add_systems(
+            PreUpdate,
+            (|| {})
+                .after(EventDispatcher::<Pointer<Out>>::bubble_events)
+                .before(EventDispatcher::<Pointer<Over>>::bubble_events),
+        );
+
+        app.add_systems(Update, update_buttons);
         app.add_systems(Update, transition_to_match.run_if(on_event::<StartMatchEvent>()));
         app.add_systems(
             Update,

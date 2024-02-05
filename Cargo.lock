@@ -1482,6 +1482,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy-inspector-egui",
+ "bevy_eventlistener",
  "bevy_framepace",
  "bevy_mod_index",
  "bevy_mod_picking",

@@ -7,7 +7,10 @@ use crate::{
     cards::Ability,
     match_sim::{BaseCard, Cards, GridLocation, MatchId, PlayerId, Us},
     network::{messages::ActivateAbilityMessage, ClientExt},
-    ui::game_scene::{create_ability_overlay, BATTLEFIELD_H, BATTLEFIELD_W, GRID_H, GRID_W},
+    ui::{
+        button::{ClickHandler, GameButton},
+        game_scene::{create_ability_overlay, BATTLEFIELD_H, BATTLEFIELD_W, GRID_H, GRID_W},
+    },
 };
 
 #[derive(Component)]
@@ -62,12 +65,13 @@ pub fn start_targeting(
                     background_color: BackgroundColor(Color::RED),
                     ..default()
                 },
-                On::<Pointer<Over>>::listener_component_mut::<BackgroundColor>(|e, color| {
-                    color.0 = Color::hex("#5aad65").unwrap();
-                }),
-                On::<Pointer<Out>>::listener_component_mut::<BackgroundColor>(|e, color| {
-                    color.0 = Color::GRAY;
-                }),
+                GameButton {
+                    bg_color: Color::GRAY,
+                    hover_color: Color::hex("#5aad65").unwrap(),
+                    disabled_color: Color::RED,
+                    click_handler: ClickHandler::new(submit_targets),
+                    active: true,
+                },
             ));
             base.spawn((
                 Name::new("targeting_cancel"),
@@ -81,30 +85,30 @@ pub fn start_targeting(
                     background_color: BackgroundColor(Color::GRAY),
                     ..default()
                 },
-                On::<Pointer<Over>>::listener_component_mut::<BackgroundColor>(|e, color| {
-                    color.0 = Color::hex("#5aad65").unwrap();
-                }),
-                On::<Pointer<Out>>::listener_component_mut::<BackgroundColor>(|e, color| {
-                    color.0 = Color::GRAY;
-                }),
-                On::<Pointer<Click>>::run(
-                    |indicators: Query<Entity, With<TargetingIndicator>>,
-                     cards: Query<Entity, With<BaseCard>>,
-                     ui: Query<Entity, With<TargetingUI>>,
-                     mut commands: Commands| {
-                        commands.entity(ui.single()).despawn_recursive();
-                        for e in &indicators {
-                            commands.entity(e).despawn();
-                        }
-                        commands.remove_resource::<Targeting>();
-                        for card in &cards {
-                            // restore overlay click handler
-                            commands
-                                .entity(card)
-                                .insert(On::<Pointer<Click>>::run(create_ability_overlay));
-                        }
-                    },
-                ),
+                GameButton {
+                    bg_color: Color::GRAY,
+                    hover_color: Color::hex("#5aad65").unwrap(),
+                    disabled_color: Color::RED,
+                    click_handler: ClickHandler::new(
+                        |indicators: Query<Entity, With<TargetingIndicator>>,
+                         cards: Query<Entity, With<BaseCard>>,
+                         ui: Query<Entity, With<TargetingUI>>,
+                         mut commands: Commands| {
+                            commands.entity(ui.single()).despawn_recursive();
+                            for e in &indicators {
+                                commands.entity(e).despawn();
+                            }
+                            commands.remove_resource::<Targeting>();
+                            for card in &cards {
+                                // restore overlay click handler
+                                commands
+                                    .entity(card)
+                                    .insert(On::<Pointer<Click>>::run(create_ability_overlay));
+                            }
+                        },
+                    ),
+                    active: true,
+                },
             ));
         });
 
@@ -179,13 +183,10 @@ pub fn start_targeting(
 pub fn check_targets(
     cards: Cards,
     targeting: Res<Targeting>,
-    mut btn: Query<(Entity, &mut BackgroundColor, Has<On<Pointer<Click>>>), With<TargetingSubmit>>,
+    mut btn: Query<&mut GameButton, With<TargetingSubmit>>,
     mut grid_idx: Index<GridLocation>,
-    mut commands: Commands,
     us: Res<Us>,
 ) {
-    let (btn, mut btn_bg, btn_active) = btn.single_mut();
-
     let ability =
         cards.get(targeting.source).unwrap().abilities.0.get(targeting.ability_idx).unwrap();
     let Ability::Activated { target_rules, .. } = ability else {
@@ -194,12 +195,11 @@ pub fn check_targets(
 
     let targets_valid = target_rules.validate(&targeting.chosen, &mut grid_idx, &cards, us.0);
 
-    if targets_valid && !btn_active {
-        commands.entity(btn).insert(On::<Pointer<Click>>::run(submit_targets));
-        *btn_bg = Color::GRAY.into();
-    } else if !targets_valid && btn_active {
-        commands.entity(btn).remove::<On<Pointer<Click>>>();
-        *btn_bg = Color::RED.into();
+    let mut btn = btn.single_mut();
+    if targets_valid && !btn.active {
+        btn.active = true;
+    } else if !targets_valid && btn.active {
+        btn.active = false;
     }
 }
 

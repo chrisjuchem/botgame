@@ -1,37 +1,15 @@
-use bevy::{app::AppExit, prelude::*, ui::node_bundles::ButtonBundle};
+use bevy::{app::AppExit, prelude::*};
+use bevy_mod_picking::prelude::*;
 use bevy_renet::renet::RenetClient;
 
 use crate::{
     cards::deck,
     network::{messages::JoinMatchmakingQueueMessage, ClientExt},
+    ui::button::{ClickHandler, GameButton},
 };
 
 #[derive(Component)]
 pub struct MainMenu;
-
-#[derive(Component)]
-pub enum MenuButton {
-    FindMatch,
-    Quit,
-}
-
-pub fn handle_button(
-    interactions: Query<(&Interaction, &MenuButton), Changed<Interaction>>,
-    mut quit: EventWriter<AppExit>,
-    mut client: ResMut<RenetClient>,
-) {
-    for (i, b) in &interactions {
-        if *i == Interaction::Pressed {
-            match b {
-                MenuButton::FindMatch => client.send(JoinMatchmakingQueueMessage {
-                    player_name: "player".to_string(),
-                    deck: deck(),
-                }),
-                MenuButton::Quit => quit.send(AppExit),
-            }
-        }
-    }
-}
 
 pub fn spawn_main_menu(mut commands: Commands) {
     commands
@@ -49,7 +27,7 @@ pub fn spawn_main_menu(mut commands: Commands) {
             ..default()
         }))
         .with_children(|base| {
-            let base_button = ButtonBundle {
+            let base_button = NodeBundle {
                 style: Style {
                     width: Val::Vw(30.),
                     margin: UiRect::all(Val::Px(3.)),
@@ -76,10 +54,36 @@ pub fn spawn_main_menu(mut commands: Commands) {
                 }
             }
 
-            base.spawn((base_button.clone(), MenuButton::FindMatch)).with_children(|btn| {
+            base.spawn((base_button.clone(), GameButton {
+                bg_color: Color::WHITE,
+                hover_color: Color::GREEN,
+                disabled_color: Color::GRAY,
+                click_handler: ClickHandler::new(
+                    |listener: Listener<Pointer<Click>>,
+                     mut client: ResMut<RenetClient>,
+                     mut btns: Query<&mut GameButton>| {
+                        client.send(JoinMatchmakingQueueMessage {
+                            player_name: "player".to_string(),
+                            deck: deck(),
+                        });
+                        btns.get_mut(listener.listener()).unwrap().active = false;
+                    },
+                ),
+                active: true,
+            }))
+            .with_children(|btn| {
                 btn.spawn(button_text("Find Match"));
             });
-            base.spawn((base_button, MenuButton::Quit)).with_children(|btn| {
+            base.spawn((base_button, GameButton {
+                bg_color: Color::WHITE,
+                hover_color: Color::GREEN,
+                disabled_color: Color::GRAY,
+                click_handler: ClickHandler::new(|mut quit: EventWriter<AppExit>| {
+                    quit.send(AppExit)
+                }),
+                active: true,
+            }))
+            .with_children(|btn| {
                 btn.spawn(button_text("Quit"));
             });
         });
