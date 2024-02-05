@@ -1,20 +1,21 @@
 use std::fmt::{Display, Formatter};
 
 use crate::cards::{
-    Ability, Card, Effect, EffectType, PassiveEffect, TargetAmount, TargetFilter, TargetRules,
+    Ability, Card, Effect, EffectType, ImplicitTargetRules, PassiveEffect, TargetAmount,
+    TargetFilter, TargetRules,
 };
 
 impl Card {
     pub fn full_text(&self) -> String {
-        let Card { name, summon_cost, hp, abilities, max_energy, energy_regen } = self;
+        let Card { name, summon_cost, hp, abilities, starting_energy, max_energy } = self;
         let fmtd_abilities =
             abilities.iter().map(Ability::full_text).collect::<Vec<_>>().join("\n");
 
         format!(
             "\
 {name}
-{hp} max HP
-{energy_regen} energy/turn up to {max_energy}
+{hp} HP
+{starting_energy}/{max_energy} energy
 {fmtd_abilities}"
         )
     }
@@ -43,7 +44,7 @@ impl Effect {
                 format!("Deal {damage} {effect_type} damage to {target_str}.")
             },
             Effect::GrantAbility { ability } => {
-                format!("Give {target_str} \"{}\"", ability.full_text())
+                format!("Give {target_str} \"{}\".", ability.full_text())
             },
             Effect::SummonCard { card } => {
                 format!("Summon the following unit to {target_str}:\n\n{}\n", card.full_text())
@@ -53,6 +54,14 @@ impl Effect {
                 .map(|e| e.full_text(target_str.clone()))
                 .collect::<Vec<_>>()
                 .join(" "),
+            Effect::ChangeHp { amount } => {
+                let (change, n) = if *amount > 0 { ("gains", *amount) } else { ("loses", -amount) };
+                format!("{target_str} {change} {n} health.",)
+            },
+            Effect::ChangeEnergy { amount } => {
+                let (change, n) = if *amount > 0 { ("gains", *amount) } else { ("loses", -amount) };
+                format!("{target_str} {change} {n} energy.",)
+            },
         }
     }
 }
@@ -81,6 +90,17 @@ impl Display for EffectType {
     }
 }
 
+impl ImplicitTargetRules {
+    pub fn text(&self) -> String {
+        match self {
+            ImplicitTargetRules::ThisUnit => "this unit",
+            ImplicitTargetRules::ThatUnit => "that unit",
+            // ImplicitTargetRules::AttackingUnit => "the attacking unit",
+        }
+        .to_string()
+    }
+}
+
 impl TargetRules {
     pub fn text(&self) -> String {
         match self.amount {
@@ -95,6 +115,7 @@ impl TargetFilter {
     pub fn text(&self) -> String {
         match self {
             TargetFilter::Any => "location(s)".to_string(),
+            TargetFilter::ThisUnit => "this unit".to_string(),
             TargetFilter::Friendly => "friendly".to_string(),
             TargetFilter::Enemy => "enemy".to_string(),
             TargetFilter::Unoccupied => "open location(s)".to_string(),

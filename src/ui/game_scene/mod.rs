@@ -8,9 +8,9 @@ use bevy_mod_index::prelude::Index;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
+    cards::Ability,
     match_sim::{
-        Abilities, BaseCard, CurrentTurn, Energy, GridLocation, Health, MatchId, PlayerId,
-        StartMatchEvent, Us,
+        BaseCard, Cards, CurrentTurn, Energy, GridLocation, Health, PlayerId, StartMatchEvent, Us,
     },
     ui::{
         button::{ClickHandler, GameButton},
@@ -222,14 +222,14 @@ pub struct Scroll {
 pub fn create_ability_overlay(
     event: Listener<Pointer<Click>>,
     mut commands: Commands,
-    cards: Query<(&Abilities, &GridLocation, &MatchId)>,
+    cards: Cards,
     current_turns: Query<Has<CurrentTurn>>,
     mut player_idx: Index<PlayerId>,
     us: Res<Us>,
     window: Query<&Window>,
 ) {
     let card_entity = event.listener();
-    let (abilities, grid_loc, match_id) = cards.get(card_entity).unwrap();
+    let card = cards.get(card_entity).unwrap();
     let window = window.single();
 
     let size = Vec2::new(0.2 * window.width(), 0.4 * window.height());
@@ -244,8 +244,8 @@ pub fn create_ability_overlay(
         mouse_pos.x - size.x - side_offest
     };
 
-    let owners_turn = current_turns.get(player_idx.lookup_single(&grid_loc.owner)).unwrap();
-    let buttons_active = owners_turn && grid_loc.owner == us.0;
+    let owners_turn = current_turns.get(player_idx.lookup_single(&card.grid_loc.owner)).unwrap();
+    let buttons_active = owners_turn && card.grid_loc.owner == us.0;
 
     let scrollbar = commands
         .spawn((Name::new("scrollbar"), NodeBundle {
@@ -283,7 +283,16 @@ pub fn create_ability_overlay(
                 ..default()
             }))
             .with_children(|base| {
-                for (i, ability) in abilities.0.iter().enumerate() {
+                for (i, ability) in card.abilities.0.iter().enumerate() {
+                    let active = buttons_active
+                        && match ability {
+                            Ability::Activated { effect, cost, .. } => {
+                                let energy_cost = cost.get(effect).energy;
+                                card.energy.current >= energy_cost
+                            },
+                            Ability::Passive { .. } => false,
+                        };
+
                     base.spawn((
                         TextBundle {
                             style: Style { margin, ..default() },
@@ -297,7 +306,7 @@ pub fn create_ability_overlay(
                         GameButton {
                             bg_color: Color::GRAY,
                             hover_color: Color::hex("#5aad65").unwrap(),
-                            disabled_color: Color::GRAY,
+                            disabled_color: if buttons_active { Color::RED } else { Color::GRAY },
                             click_handler: ClickHandler::new(move |mut commands: Commands| {
                                 commands.insert_resource(Targeting {
                                     source: card_entity,
@@ -305,7 +314,7 @@ pub fn create_ability_overlay(
                                     chosen: vec![],
                                 })
                             }),
-                            active: buttons_active,
+                            active,
                         },
                     ));
                 }

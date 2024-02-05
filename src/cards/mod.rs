@@ -9,7 +9,7 @@ use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::match_sim::{CardQueryReadOnlyItem, Cards, GridLocation, PlayerId};
+use crate::match_sim::{Cards, GridLocation};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Card {
@@ -17,8 +17,8 @@ pub struct Card {
     pub summon_cost: Cost,
     pub hp: u32,
     pub abilities: Vec<Ability>, // name + abilityData ??
+    pub starting_energy: u32,
     pub max_energy: u32,
-    pub energy_regen: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -37,10 +37,10 @@ impl Ability {
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct Cost {
-    pub(crate) energy: u32,
+    pub energy: u32,
 }
 impl Cost {
-    const FREE: Cost = Cost { energy: 0 };
+    pub const FREE: Cost = Cost { energy: 0 };
 }
 
 pub trait DerivedCostFunc: Sync + Fn(&Effect) -> Cost {
@@ -85,7 +85,7 @@ pub enum AbilityCost {
     },
 }
 impl AbilityCost {
-    fn get(&self, effect: &Effect) -> Cost {
+    pub fn get(&self, effect: &Effect) -> Cost {
         match self {
             AbilityCost::Static { cost } => *cost,
             AbilityCost::Derived { func } => func(effect),
@@ -107,7 +107,7 @@ impl Debug for AbilityCost {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Effect {
     Attack { damage: u32, effect_type: EffectType },
-    GrantAbility { ability: Box<Ability> },
+    GrantAbility { ability: Box<Ability> }, // Box to avoid infinite type
     SummonCard { card: Card },
     // SharableEnergy {
     //     factor: f32,
@@ -116,12 +116,15 @@ pub enum Effect {
     //
     // },
     MultipleEffects { effects: Vec<Effect> },
+
+    ChangeHp { amount: i32 },
+    ChangeEnergy { amount: i32 },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PassiveEffect {
     DamageResistance { effect_type: EffectType, factor: f32 },
-    WhenHit { effect: Effect, target_rules: TargetRules },
+    WhenHit { effect: Effect, target_rules: ImplicitTargetRules },
     // ModifySummonCost
     // ModifyAbilityCost ??
 }
@@ -135,27 +138,31 @@ pub enum EffectType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum ImplicitTargetRules {
+    ThisUnit,
+    ThatUnit,
+    // AttackingUnit,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TargetRules {
-    amount: TargetAmount,
-    filter: TargetFilter,
+    pub amount: TargetAmount,
+    pub filter: TargetFilter,
     // chosen, random, or auto
 }
 impl TargetRules {
-    pub(crate) fn validate(
+    pub fn validate(
         &self,
         targets: &[GridLocation],
         loc_idx: &mut Index<GridLocation>,
         cards: &Cards,
-        effect_owner: PlayerId,
+        effect_source: &GridLocation,
     ) -> bool {
-        if !self.amount.validate(targets.len()) {
+        if !self.amount.validate(targets.len(), cards) {
             return false;
         }
 
-        targets.iter().all(|loc| {
-            let card = loc_idx.lookup(loc).next().and_then(|e| cards.get(e).ok());
-            self.filter.validate(card.as_ref(), loc.owner, effect_owner)
-        })
+        targets.iter().all(|loc| self.filter.validate(loc, loc_idx, cards, effect_source))
     }
 }
 
@@ -166,11 +173,15 @@ pub enum TargetAmount {
     UpToN { n: usize },
 }
 impl TargetAmount {
-    pub fn validate(&self, x: usize) -> bool {
+    pub fn validate(&self, x: usize, cards: &Cards) -> bool {
         match self {
             TargetAmount::N { n } => *n == x,
             TargetAmount::UpToN { n } => x <= *n,
-            TargetAmount::All => panic!("TODO: implement 'all' targeting"),
+            TargetAmount::All => {
+                // TODO not assume occupied
+                let total = cards.iter().count();
+                x == total
+            },
         }
     }
 }
@@ -178,6 +189,7 @@ impl TargetAmount {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TargetFilter {
     Any,
+    ThisUnit,
     Friendly,
     Enemy,
     Unoccupied,
@@ -188,129 +200,30 @@ pub enum TargetFilter {
 impl TargetFilter {
     pub fn validate(
         &self,
-        card: Option<&CardQueryReadOnlyItem>,
-        target_owner: PlayerId,
-        effect_owner: PlayerId,
+        target: &GridLocation,
+        loc_idx: &mut Index<GridLocation>,
+        cards: &Cards,
+        effect_source: &GridLocation,
     ) -> bool {
+        let card = loc_idx.lookup(target).next().and_then(|e| cards.get(e).ok());
         match self {
             TargetFilter::Any => true,
-            TargetFilter::Friendly => target_owner == effect_owner,
-            TargetFilter::Enemy => target_owner != effect_owner,
+            TargetFilter::ThisUnit => card.is_some() && card.unwrap().grid_loc == effect_source,
+            TargetFilter::Friendly => target.owner == effect_source.owner,
+            TargetFilter::Enemy => target.owner != effect_source.owner,
             TargetFilter::Unoccupied => card.is_none(),
             TargetFilter::Occupied => card.is_some(),
             TargetFilter::And(conds) => {
-                conds.iter().all(|c| c.validate(card, target_owner, effect_owner))
+                conds.iter().all(|c| c.validate(target, loc_idx, cards, effect_source))
             },
             TargetFilter::Or(conds) => {
-                conds.iter().any(|c| c.validate(card, target_owner, effect_owner))
+                conds.iter().any(|c| c.validate(target, loc_idx, cards, effect_source))
             },
         }
     }
 }
 
-pub fn deck() -> Card {
-    let deck = vec![
-        Card {
-            name: "bot 1".to_string(),
-            summon_cost: Cost { energy: 3 },
-            hp: 8,
-            abilities: vec![Ability::Activated {
-                effect: Effect::Attack { damage: 3, effect_type: EffectType::Fire },
-                cost: AbilityCost::Static { cost: Cost { energy: 2 } },
-                target_rules: TargetRules {
-                    amount: TargetAmount::N { n: 1 },
-                    filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
-                },
-            }],
-            max_energy: 3,
-            energy_regen: 1,
-        },
-        Card {
-            name: "bot 2".to_string(),
-            summon_cost: Cost { energy: 5 },
-            hp: 20,
-            abilities: vec![Ability::Activated {
-                effect: Effect::Attack { damage: 1, effect_type: EffectType::Physical },
-                cost: AbilityCost::Static { cost: Cost::FREE },
-                target_rules: TargetRules {
-                    amount: TargetAmount::N { n: 1 },
-                    filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
-                },
-            }],
-            max_energy: 0,
-            energy_regen: 0,
-        },
-        Card {
-            name: "bot 3".to_string(),
-            summon_cost: Cost { energy: 3 },
-            hp: 8,
-            abilities: vec![Ability::Activated {
-                effect: Effect::Attack { damage: 3, effect_type: EffectType::Fire },
-                cost: AbilityCost::Static { cost: Cost { energy: 2 } },
-                target_rules: TargetRules {
-                    amount: TargetAmount::N { n: 1 },
-                    filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
-                },
-            }],
-            max_energy: 3,
-            energy_regen: 1,
-        },
-        Card {
-            name: "bot 4".to_string(),
-            summon_cost: Cost { energy: 5 },
-            hp: 20,
-            abilities: vec![Ability::Activated {
-                effect: Effect::Attack { damage: 1, effect_type: EffectType::Physical },
-                cost: AbilityCost::Static { cost: Cost::FREE },
-                target_rules: TargetRules {
-                    amount: TargetAmount::N { n: 1 },
-                    filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
-                },
-            }],
-            max_energy: 0,
-            energy_regen: 0,
-        },
-        Card {
-            name: "bot 5".to_string(),
-            summon_cost: Cost { energy: 5 },
-            hp: 20,
-            abilities: vec![Ability::Activated {
-                effect: Effect::Attack { damage: 1, effect_type: EffectType::Physical },
-                cost: AbilityCost::Static { cost: Cost::FREE },
-                target_rules: TargetRules {
-                    amount: TargetAmount::N { n: 1 },
-                    filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
-                },
-            }],
-            max_energy: 0,
-            energy_regen: 0,
-        },
-    ];
-
-    Card {
-        name: "Command Center".to_string(),
-        summon_cost: Cost::FREE,
-        hp: 50,
-        abilities: deck
-            .into_iter()
-            .map(|card| Ability::Activated {
-                effect: Effect::SummonCard { card },
-                cost: AbilityCost::Derived { func: &summon_cost },
-                target_rules: TargetRules {
-                    amount: TargetAmount::N { n: 1 },
-                    filter: TargetFilter::And(vec![
-                        TargetFilter::Unoccupied,
-                        TargetFilter::Friendly,
-                    ]),
-                },
-            })
-            .collect(),
-        max_energy: 10,
-        energy_regen: 1,
-    }
-}
-
-fn summon_cost(effect: &Effect) -> Cost {
+pub fn summon_cost(effect: &Effect) -> Cost {
     let Effect::SummonCard { card } = effect else {
         panic!("Can't get summon cost of {effect:?}");
     };

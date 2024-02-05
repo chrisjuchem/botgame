@@ -1,4 +1,235 @@
 {
   "client_id": 88888888,
-  "server_ip": "71.245.224.17"
+  "server_ip": "71.245.224.17",
+  "deck": {
+    "name": "Command Center",
+    "summon_cost": {
+      "energy": 0
+    },
+    "hp": 50,
+    "abilities": [
+      {
+        "Activated": {
+          "effect": {
+            "SummonCard": {
+              "card": {
+                "name": "Shrapnel Bot",
+                "summon_cost": {
+                  "energy": 3
+                },
+                "hp": 6,
+                "abilities": [
+                  {
+                    "Activated": {
+                      "effect": {
+                        "Attack": {
+                          "damage": 1,
+                          "effect_type": "Physical"
+                        }
+                      },
+                      "cost": {
+                        "Static": {
+                          "cost": {
+                            "energy": 2
+                          }
+                        }
+                      },
+                      "target_rules": {
+                        "amount": "All",
+                        "filter": "Occupied"
+                      }
+                    }
+                  }
+                ],
+                "starting_energy": 1,
+                "max_energy": 3
+              }
+            }
+          },
+          "cost": {
+            "Derived": {
+              "func": "&dyn botgame::cards::DerivedCostFunc<Output = botgame::cards::Cost>"
+            }
+          },
+          "target_rules": {
+            "amount": {
+              "N": {
+                "n": 1
+              }
+            },
+            "filter": {
+              "And": [
+                "Friendly",
+                "Unoccupied"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "Activated": {
+          "effect": {
+            "SummonCard": {
+              "card": {
+                "name": "Charge Bot",
+                "summon_cost": {
+                  "energy": 4
+                },
+                "hp": 10,
+                "abilities": [
+                  {
+                    "Passive": {
+                      "passive_effect": {
+                        "WhenHit": {
+                          "effect": {
+                            "ChangeEnergy": {
+                              "amount": 2
+                            }
+                          },
+                          "target_rules": "ThatUnit"
+                        }
+                      },
+                      "target_filter": {
+                        "And": [
+                          "Friendly",
+                          "Occupied"
+                        ]
+                      }
+                    }
+                  }
+                ],
+                "starting_energy": 0,
+                "max_energy": 0
+              }
+            }
+          },
+          "cost": {
+            "Derived": {
+              "func": "&dyn botgame::cards::DerivedCostFunc<Output = botgame::cards::Cost>"
+            }
+          },
+          "target_rules": {
+            "amount": {
+              "N": {
+                "n": 1
+              }
+            },
+            "filter": {
+              "And": [
+                "Friendly",
+                "Unoccupied"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "Activated": {
+          "effect": {
+            "SummonCard": {
+              "card": {
+                "name": "Support Bot",
+                "summon_cost": {
+                  "energy": 1
+                },
+                "hp": 10,
+                "abilities": [
+                  {
+                    "Activated": {
+                      "effect": {
+                        "GrantAbility": {
+                          "ability": {
+                            "Passive": {
+                              "passive_effect": {
+                                "DamageResistance": {
+                                  "effect_type": "Physical",
+                                  "factor": 2.0
+                                }
+                              },
+                              "target_filter": "ThisUnit"
+                            }
+                          }
+                        }
+                      },
+                      "cost": {
+                        "Static": {
+                          "cost": {
+                            "energy": 3
+                          }
+                        }
+                      },
+                      "target_rules": {
+                        "amount": {
+                          "N": {
+                            "n": 1
+                          }
+                        },
+                        "filter": "Occupied"
+                      }
+                    }
+                  },
+                  {
+                    "Activated": {
+                      "effect": {
+                        "GrantAbility": {
+                          "ability": {
+                            "Passive": {
+                              "passive_effect": {
+                                "DamageResistance": {
+                                  "effect_type": "Physical",
+                                  "factor": 0.5
+                                }
+                              },
+                              "target_filter": "ThisUnit"
+                            }
+                          }
+                        }
+                      },
+                      "cost": {
+                        "Static": {
+                          "cost": {
+                            "energy": 3
+                          }
+                        }
+                      },
+                      "target_rules": {
+                        "amount": {
+                          "N": {
+                            "n": 1
+                          }
+                        },
+                        "filter": "Occupied"
+                      }
+                    }
+                  }
+                ],
+                "starting_energy": 2,
+                "max_energy": 5
+              }
+            }
+          },
+          "cost": {
+            "Derived": {
+              "func": "&dyn botgame::cards::DerivedCostFunc<Output = botgame::cards::Cost>"
+            }
+          },
+          "target_rules": {
+            "amount": {
+              "N": {
+                "n": 1
+              }
+            },
+            "filter": {
+              "And": [
+                "Friendly",
+                "Unoccupied"
+              ]
+            }
+          }
+        }
+      }
+    ],
+    "starting_energy": 3,
+    "max_energy": 10
+  }
 }

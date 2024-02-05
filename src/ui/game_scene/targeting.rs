@@ -5,7 +5,7 @@ use bevy_renet::renet::RenetClient;
 
 use crate::{
     cards::Ability,
-    match_sim::{BaseCard, Cards, GridLocation, MatchId, PlayerId, Us},
+    match_sim::{BaseCard, Cards, GridLocation, MatchId, PlayerId},
     network::{messages::ActivateAbilityMessage, ClientExt},
     ui::{
         button::{ClickHandler, GameButton},
@@ -29,10 +29,11 @@ pub struct Targeting {
 
 pub fn start_targeting(
     targeting: Res<Targeting>,
-    cards: Query<(Entity, &GridLocation), With<BaseCard>>,
+    cards: Cards,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut loc_idx: Index<GridLocation>,
     players: Query<&PlayerId>,
 ) {
     if !targeting.is_added() {
@@ -112,11 +113,22 @@ pub fn start_targeting(
             ));
         });
 
+    let source_card = cards.get(targeting.source).unwrap();
+    let Ability::Activated { target_rules, .. } =
+        source_card.abilities.0.get(targeting.ability_idx).unwrap()
+    else {
+        panic!("Activated passive abillity!");
+    };
     let mut indicators = HashMap::new();
     for p in players.iter() {
         for x in 0..(GRID_H as u32 / 2) {
             for y in 0..(GRID_W as u32) {
                 let loc = GridLocation { coord: UVec2 { x, y }, owner: *p };
+
+                if !target_rules.filter.validate(&loc, &mut loc_idx, &cards, source_card.grid_loc) {
+                    continue;
+                }
+
                 let e = commands
                     .spawn((Name::new("floor_targeting_helper"), TargetingIndicator, PbrBundle {
                         mesh: meshes.add(Mesh::from(shape::Plane::from_size(BATTLEFIELD_H / 4.5))),
@@ -135,12 +147,14 @@ pub fn start_targeting(
         }
     }
 
-    for (e, loc) in &cards {
-        let mut cmds = commands.entity(e);
-        cmds.add_child(*indicators.get(loc).unwrap());
-        indicators.insert(*loc, e);
-        // remove overlay click handler
-        cmds.remove::<On<Pointer<Click>>>();
+    for card in &cards {
+        let mut cmds = commands.entity(card.entity);
+        if let Some(indicator_e) = indicators.get(card.grid_loc) {
+            cmds.add_child(*indicator_e);
+            indicators.insert(*card.grid_loc, card.entity);
+            // remove overlay click handler
+            cmds.remove::<On<Pointer<Click>>>();
+        }
     }
 
     for (loc, e) in indicators.into_iter() {
@@ -185,15 +199,15 @@ pub fn check_targets(
     targeting: Res<Targeting>,
     mut btn: Query<&mut GameButton, With<TargetingSubmit>>,
     mut grid_idx: Index<GridLocation>,
-    us: Res<Us>,
 ) {
-    let ability =
-        cards.get(targeting.source).unwrap().abilities.0.get(targeting.ability_idx).unwrap();
+    let card = cards.get(targeting.source).unwrap();
+    let ability = card.abilities.0.get(targeting.ability_idx).unwrap();
     let Ability::Activated { target_rules, .. } = ability else {
         panic!("Activated passive abillity!");
     };
 
-    let targets_valid = target_rules.validate(&targeting.chosen, &mut grid_idx, &cards, us.0);
+    let targets_valid =
+        target_rules.validate(&targeting.chosen, &mut grid_idx, &cards, card.grid_loc);
 
     let mut btn = btn.single_mut();
     if targets_valid && !btn.active {

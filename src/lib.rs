@@ -2,12 +2,12 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-mod cards;
-mod macros;
-mod match_sim;
-mod network;
-mod ui;
-mod utils;
+pub mod cards;
+pub mod macros;
+pub mod match_sim;
+pub mod network;
+pub mod ui;
+pub mod utils;
 
 use bevy::{log::LogPlugin, prelude::*};
 use wasm_bindgen::prelude::*;
@@ -48,7 +48,7 @@ fn log_plugin() -> LogPlugin {
 pub fn run_server() {
     let mut app = App::new();
     app.add_plugins((MinimalPlugins, log_plugin()));
-    app.add_plugins((ServerPlugin, MatchSimPlugin, NwDebugPlugin));
+    app.add_plugins((ServerPlugin, MatchSimPlugin { server: true }, NwDebugPlugin));
     app.run();
 }
 
@@ -56,7 +56,7 @@ pub fn run_server() {
 pub fn run_client() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins.set(log_plugin()));
-    app.add_plugins((ClientPlugin, MatchSimPlugin, NwDebugPlugin, ScenePlugin));
+    app.add_plugins((ClientPlugin, MatchSimPlugin { server: false }, NwDebugPlugin, ScenePlugin));
 
     app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
     // app.add_systems(Startup, |mut c: ResMut<RenetClient>| {

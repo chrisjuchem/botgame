@@ -70,7 +70,6 @@ pub fn update_buttons(
             ));
         }
         if btn.is_changed() {
-            println!("btn update {e:?}");
             *bg = if btn.active { btn.bg_color } else { btn.disabled_color }.into()
         }
     }

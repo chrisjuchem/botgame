@@ -1,18 +1,33 @@
-use bevy::{ecs::query::WorldQuery, prelude::*};
+use std::ops::Deref;
+
+use bevy::{
+    ecs::{event::ManualEventReader, query::WorldQuery, system::BoxedSystem},
+    prelude::*,
+};
 use bevy_mod_index::prelude::*;
 use extension_trait::extension_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards::{mesh::NeedsMesh, Ability, Card, Effect, PassiveEffect},
+    cards::{mesh::NeedsMesh, Ability, Card, Effect, ImplicitTargetRules, PassiveEffect},
     utils::Uuid,
 };
 
-pub struct MatchSimPlugin;
+pub struct MatchSimPlugin {
+    pub(crate) server: bool,
+}
 impl Plugin for MatchSimPlugin {
     fn build(&self, app: &mut App) {
         init_events(app);
-        app.add_systems(Update, (start_match, apply_deferred, effects, next_turn).chain());
+        let specialized_effects: BoxedSystem = if self.server {
+            Box::new(IntoSystem::into_system(server_effects))
+        } else {
+            Box::new(IntoSystem::into_system(client_effects))
+        };
+        app.add_systems(
+            Update,
+            (start_match, apply_deferred, specialized_effects, common_effects, next_turn).chain(),
+        );
         app.add_systems(Update, cleanup_match);
     }
 }
@@ -67,7 +82,7 @@ pub struct Us(pub PlayerId);
 pub struct BaseCard(pub Card);
 
 #[derive(Component, Debug)]
-pub struct Health(pub u32);
+pub struct Health(pub i32);
 
 #[derive(Component, Debug)]
 pub struct Energy {
@@ -90,6 +105,17 @@ impl IndexInfo for GridLocation {
         *g
     }
 }
+pub struct OwnerIndex;
+impl IndexInfo for OwnerIndex {
+    type Components = &'static GridLocation;
+    type Value = PlayerId;
+    type Storage = HashmapStorage<Self>;
+    type RefreshPolicy = ConservativeRefreshPolicy;
+
+    fn value(g: &GridLocation) -> Self::Value {
+        g.owner
+    }
+}
 
 #[derive(Component, Clone, Debug)]
 pub struct Abilities(pub Vec<Ability>);
@@ -99,7 +125,7 @@ pub struct Abilities(pub Vec<Ability>);
 pub struct CardQuery {
     pub entity: Entity,
     pub name: &'static Name,
-    pub grid_loc: &'static mut GridLocation,
+    pub grid_loc: &'static GridLocation,
     pub abilities: &'static mut Abilities,
     pub health: &'static mut Health,
     pub energy: &'static mut Energy,
@@ -171,12 +197,15 @@ fn next_turn(
     }
 }
 
-fn effects(
+fn client_effects(mut e: EventReader<EffectEvent>) {
+    for EffectEvent { match_id, effect, targets } in e.read() {}
+}
+
+fn common_effects(
     mut commands: Commands,
     mut e: EventReader<EffectEvent>,
-
-    mut cards_and_loc_idx_and_match_idx: ParamSet<(CardsMut, Index<GridLocation>, Index<MatchId>)>,
-    us: Option<Res<Us>>,
+    mut cards: CardsMut,
+    mut loc_idx: Index<GridLocation>,
 ) {
     for EffectEvent { match_id, effect, targets } in e.read() {
         debug!("effect {effect:?} with targets {targets:?}");
@@ -186,45 +215,108 @@ fn effects(
                     commands.spawn_card(card.clone(), *match_id, *t)
                 }
             },
+            Effect::GrantAbility { ability } => {
+                for t in targets {
+                    cards
+                        .get_mut(loc_idx.lookup_single(t))
+                        .unwrap()
+                        .abilities
+                        .0
+                        .push(ability.deref().clone());
+                }
+            },
+            Effect::ChangeHp { amount } => {
+                for t in targets {
+                    cards.get_mut(loc_idx.lookup_single(t)).unwrap().health.0 += amount;
+                }
+            },
+            Effect::ChangeEnergy { amount } => {
+                for t in targets {
+                    let mut e = cards.get_mut(loc_idx.lookup_single(t)).unwrap().energy;
+                    e.current = (e.current as i32 + amount).clamp(0, e.max as i32) as u32;
+                }
+            },
+            Effect::Attack { .. } | Effect::MultipleEffects { .. } => {
+                // Handled by server_effects
+            },
+        }
+    }
+}
+
+fn server_effects(
+    mut e: ResMut<Events<EffectEvent>>,
+    mut e_reader: Local<ManualEventReader<EffectEvent>>,
+    cards: Cards,
+    mut loc_idx: Index<GridLocation>,
+    mut match_idx: Index<MatchId>,
+) {
+    let mut new_events = vec![];
+    for EffectEvent { match_id, effect, targets } in e_reader.read(&*e) {
+        match effect {
             Effect::Attack { effect_type, damage } => {
                 for t in targets {
-                    let target_e = cards_and_loc_idx_and_match_idx.p1().lookup_single(t);
                     let mut final_factor = 1.;
-
-                    let match_entities =
-                        cards_and_loc_idx_and_match_idx.p2().lookup(match_id).collect::<Vec<_>>();
-                    let cards = cards_and_loc_idx_and_match_idx.p0();
-                    for (a, a_owner) in cards
-                        .iter_many(match_entities)
-                        .flat_map(|card| card.abilities.0.iter().map(|a| (a, card.grid_loc.owner)))
+                    for (ability, ability_source_loc) in cards
+                        .iter_many(match_idx.lookup(match_id))
+                        .flat_map(|card| card.abilities.0.iter().map(|a| (a, *card.grid_loc)))
                     {
-                        if let Ability::Passive {
-                            passive_effect:
-                                PassiveEffect::DamageResistance { effect_type: effect_filter, factor },
-                            target_filter,
-                        } = a
-                        {
-                            if *effect_type == *effect_filter
-                                && target_filter.validate(
-                                    cards.get(target_e).ok().as_ref(),
-                                    t.owner,
-                                    a_owner,
-                                )
+                        if let Ability::Passive { passive_effect, target_filter } = ability {
+                            if target_filter.validate(t, &mut loc_idx, &cards, &ability_source_loc)
                             {
-                                final_factor *= factor;
+                                match passive_effect {
+                                    PassiveEffect::DamageResistance {
+                                        effect_type: effect_filter,
+                                        factor,
+                                    } => {
+                                        if *effect_type == *effect_filter {
+                                            final_factor *= factor;
+                                        }
+                                    },
+                                    PassiveEffect::WhenHit { effect, target_rules } => {
+                                        let target = match target_rules {
+                                            ImplicitTargetRules::ThisUnit => ability_source_loc,
+                                            ImplicitTargetRules::ThatUnit => *t,
+                                        };
+
+                                        new_events.push(EffectEvent {
+                                            match_id: *match_id,
+                                            effect: effect.clone(),
+                                            targets: vec![target],
+                                        })
+                                    },
+                                }
                             }
                         }
                     }
 
                     let final_dmg = *damage as f32 * final_factor;
-                    cards_and_loc_idx_and_match_idx.p0().get_mut(target_e).unwrap().health.0 -=
-                        final_dmg as u32;
+
+                    new_events.push(EffectEvent {
+                        match_id: *match_id,
+                        effect: Effect::ChangeHp { amount: -(final_dmg as i32) },
+                        targets: vec![*t],
+                    });
                 }
             },
-            _ => unimplemented!(),
-            // Effect::GrantAbility { .. } => {}
-            // Effect::MultipleEffects { .. } => {}
+            Effect::MultipleEffects { effects } => {
+                for e in effects {
+                    new_events.push(EffectEvent {
+                        match_id: *match_id,
+                        effect: e.clone(),
+                        targets: targets.clone(),
+                    })
+                }
+            },
+            Effect::SummonCard { .. }
+            | Effect::GrantAbility { .. }
+            | Effect::ChangeHp { .. }
+            | Effect::ChangeEnergy { .. } => {
+                // Handled by common_effects
+            },
         }
+    }
+    for ev in new_events.into_iter() {
+        e.send(ev);
     }
 }
 
@@ -248,8 +340,8 @@ impl CommandExts for Commands<'_, '_> {
         let card = self.spawn((
             mid,
             Name::new(card.name.to_string()),
-            Health(card.hp),
-            Energy { current: 1, max: card.max_energy },
+            Health(card.hp as i32),
+            Energy { current: card.starting_energy, max: card.max_energy },
             Abilities(card.abilities.clone()),
             BaseCard(card),
             (loc, SpatialBundle::default()),

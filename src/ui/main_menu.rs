@@ -3,8 +3,7 @@ use bevy_mod_picking::prelude::*;
 use bevy_renet::renet::RenetClient;
 
 use crate::{
-    cards::deck,
-    network::{messages::JoinMatchmakingQueueMessage, ClientExt},
+    network::{messages::JoinMatchmakingQueueMessage, ClientConfig, ClientExt},
     ui::button::{ClickHandler, GameButton},
 };
 
@@ -61,10 +60,11 @@ pub fn spawn_main_menu(mut commands: Commands) {
                 click_handler: ClickHandler::new(
                     |listener: Listener<Pointer<Click>>,
                      mut client: ResMut<RenetClient>,
+                     config: Res<ClientConfig>,
                      mut btns: Query<&mut GameButton>| {
                         client.send(JoinMatchmakingQueueMessage {
                             player_name: "player".to_string(),
-                            deck: deck(),
+                            deck: config.deck.clone(),
                         });
                         btns.get_mut(listener.listener()).unwrap().active = false;
                     },

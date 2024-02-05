@@ -16,6 +16,7 @@ use extension_trait::extension_trait;
 use serde::Deserialize;
 
 use crate::{
+    cards::Card,
     match_sim::{EffectEvent, NewTurnEvent, StartMatchEvent, Us},
     network::{
         messages::{EffectMessage, NetworkMessage, NewTurnMessage, ProtocolErrorMessage},
@@ -23,10 +24,11 @@ use crate::{
     },
 };
 
-#[derive(Deserialize)]
+#[derive(Resource, Deserialize)]
 pub struct ClientConfig {
-    server_ip: IpAddr,
-    client_id: u64,
+    pub server_ip: IpAddr,
+    pub client_id: u64,
+    pub deck: Card,
 }
 
 pub struct ClientPlugin;
@@ -40,6 +42,7 @@ impl Plugin for ClientPlugin {
             std::fs::File::open(config_path).expect("could not open config file"),
         )
         .expect("invalid config");
+
         let socket = UdpSocket::bind((Ipv4Addr::UNSPECIFIED, 0)).unwrap();
         let authentication = ClientAuthentication::Unsecure {
             server_addr: SocketAddr::new(config.server_ip, PORT),
@@ -50,6 +53,7 @@ impl Plugin for ClientPlugin {
         let current_time = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap();
         let transport = NetcodeClientTransport::new(current_time, authentication, socket).unwrap();
 
+        app.insert_resource(config);
         app.insert_resource(transport);
 
         app.add_systems(First, read_messages);

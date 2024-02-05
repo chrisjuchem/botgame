@@ -22,7 +22,7 @@ use extension_trait::extension_trait;
 use crate::{
     cards::{Ability, Card, Effect},
     match_sim::{
-        Abilities, CurrentTurn, EffectEvent, GridLocation, MatchId, NewTurnEvent, PlayerId,
+        Cards, CurrentTurn, EffectEvent, GridLocation, MatchId, NewTurnEvent, OwnerIndex, PlayerId,
         StartMatchEvent,
     },
     network::{
@@ -161,7 +161,6 @@ fn matchmaking(
     mut start_turn: EventWriter<NewTurnEvent>,
     mut match_map: ResMut<MatchClientMap>,
     mut clients: ResMut<ConnectedClients>,
-    mut rand: Local<u32>,
 ) {
     debug!("{} players in queue", mm_queue.0.len());
 
@@ -185,12 +184,10 @@ fn matchmaking(
     *mm_queue = MMQueue(i.collect());
 
     for (pid, card) in &mut players {
-        *rand = ((*rand + 7) * 7) % 5;
-
         effects.send(EffectEvent {
             match_id,
             effect: Effect::SummonCard { card: card.take().unwrap() },
-            targets: vec![GridLocation { owner: *pid, coord: UVec2::new(0, *rand) }],
+            targets: vec![GridLocation { owner: *pid, coord: UVec2::new(0, 2) }],
         });
     }
 
@@ -250,9 +247,10 @@ fn process_abilities(
     mut ability_queue: ResMut<AbilityQueue>,
     mut effects: EventWriter<EffectEvent>,
     mut turns: EventWriter<NewTurnEvent>,
-    cards: Query<(&GridLocation, &Abilities)>,
+    cards: Cards,
     cur_turns: Query<Has<CurrentTurn>>,
     mut player_idx: Index<PlayerId>,
+    mut owner_idx: Index<OwnerIndex>,
     mut loc_idx: Index<GridLocation>,
     clients: Res<ConnectedClients>,
     client_map: Res<MatchClientMap>,
@@ -269,15 +267,14 @@ fn process_abilities(
             continue;
         }
 
-        let card = cards.get(
+        let Ok(card) = cards.get(
             loc_idx.lookup_single(&GridLocation { owner: *pid, coord: activation.unit_location }),
-        );
-        let Ok((_, abilities)) = card else {
+        ) else {
             server.send_error(&client_id, "No unit there.");
             continue;
         };
 
-        let Some(ability) = abilities.0.get(activation.ability_idx) else {
+        let Some(ability) = card.abilities.0.get(activation.ability_idx) else {
             server.send_error(&client_id, "No such ability.");
             continue;
         };
@@ -287,10 +284,18 @@ fn process_abilities(
             continue;
         };
 
+        let energy_cost = cost.get(&effect).energy;
+        if energy_cost > card.energy.current {
+            server.send_error(&client_id, "Not enough energy.")
+        }
+
         // todo validate targets
 
-        // todo validate and pay cost
-
+        effects.send(EffectEvent {
+            match_id: activation.match_id,
+            effect: Effect::ChangeEnergy { amount: -(energy_cost as i32) },
+            targets: vec![*card.grid_loc],
+        });
         effects.send(EffectEvent {
             match_id: activation.match_id,
             effect: effect.clone(),
@@ -311,6 +316,14 @@ fn process_abilities(
             )
             .unwrap()
             .unwrap();
-        turns.send(NewTurnEvent { match_id: activation.match_id, next_player })
+        turns.send(NewTurnEvent { match_id: activation.match_id, next_player });
+        effects.send(EffectEvent {
+            match_id: activation.match_id,
+            effect: Effect::ChangeEnergy { amount: 1 },
+            targets: cards
+                .iter_many(owner_idx.lookup(&next_player))
+                .map(|card| *card.grid_loc)
+                .collect(),
+        });
     }
 }

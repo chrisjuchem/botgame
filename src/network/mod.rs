@@ -2,7 +2,7 @@ mod client;
 pub mod messages;
 mod server;
 
-pub use client::{ClientExt, ClientPlugin};
+pub use client::{ClientConfig, ClientExt, ClientPlugin};
 pub use server::{ServerExt, ServerPlugin};
 
 pub const PORT: u16 = 17922;
