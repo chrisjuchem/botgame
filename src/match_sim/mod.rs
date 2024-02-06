@@ -19,14 +19,33 @@ pub struct MatchSimPlugin {
 impl Plugin for MatchSimPlugin {
     fn build(&self, app: &mut App) {
         init_events(app);
-        let specialized_effects: BoxedSystem = if self.server {
-            Box::new(IntoSystem::into_system(server_effects))
+        let (specialized_effects, state_based_effects): (BoxedSystem, BoxedSystem) = if self.server
+        {
+            (
+                Box::new(IntoSystem::into_system(server_effects)),
+                Box::new(IntoSystem::into_system(server_state_based)),
+            )
         } else {
-            Box::new(IntoSystem::into_system(client_effects))
+            (
+                Box::new(IntoSystem::into_system(client_effects)),
+                Box::new(IntoSystem::into_system(|| {})),
+            )
         };
+
+        // TODO: use manual stack for effects instead of reading event queue
+
         app.add_systems(
             Update,
-            (start_match, apply_deferred, specialized_effects, common_effects, next_turn).chain(),
+            (
+                start_match,
+                apply_deferred,
+                specialized_effects,
+                common_effects,
+                apply_deferred,
+                state_based_effects,
+                next_turn,
+            )
+                .chain(),
         );
         app.add_systems(Update, cleanup_match);
     }
@@ -124,6 +143,7 @@ pub struct Abilities(pub Vec<Ability>);
 #[world_query(mutable, derive(Debug))]
 pub struct CardQuery {
     pub entity: Entity,
+    pub match_id: &'static MatchId,
     pub name: &'static Name,
     pub grid_loc: &'static GridLocation,
     pub abilities: &'static mut Abilities,
@@ -236,6 +256,12 @@ fn common_effects(
                     e.current = (e.current as i32 + amount).clamp(0, e.max as i32) as u32;
                 }
             },
+            Effect::DestroyCard => {
+                for t in targets {
+                    println!("despawn {t:?}");
+                    commands.entity(loc_idx.lookup_single(t)).despawn_recursive();
+                }
+            },
             Effect::Attack { .. } | Effect::MultipleEffects { .. } => {
                 // Handled by server_effects
             },
@@ -243,6 +269,7 @@ fn common_effects(
     }
 }
 
+// todo read from a stack instead of using event queue
 fn server_effects(
     mut e: ResMut<Events<EffectEvent>>,
     mut e_reader: Local<ManualEventReader<EffectEvent>>,
@@ -310,13 +337,26 @@ fn server_effects(
             Effect::SummonCard { .. }
             | Effect::GrantAbility { .. }
             | Effect::ChangeHp { .. }
-            | Effect::ChangeEnergy { .. } => {
+            | Effect::ChangeEnergy { .. }
+            | Effect::DestroyCard => {
                 // Handled by common_effects
             },
         }
     }
     for ev in new_events.into_iter() {
         e.send(ev);
+    }
+}
+
+fn server_state_based(mut e: EventWriter<EffectEvent>, cards: Cards) {
+    for card in &cards {
+        if card.health.0 <= 0 {
+            e.send(EffectEvent {
+                match_id: *card.match_id,
+                effect: Effect::DestroyCard,
+                targets: vec![*card.grid_loc],
+            })
+        }
     }
 }
 

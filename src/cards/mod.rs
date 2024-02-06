@@ -119,6 +119,7 @@ pub enum Effect {
 
     ChangeHp { amount: i32 },
     ChangeEnergy { amount: i32 },
+    DestroyCard,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

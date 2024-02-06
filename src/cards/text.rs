@@ -62,6 +62,9 @@ impl Effect {
                 let (change, n) = if *amount > 0 { ("gains", *amount) } else { ("loses", -amount) };
                 format!("{target_str} {change} {n} energy.",)
             },
+            Effect::DestroyCard => {
+                format!("Destroy {target_str}")
+            },
         }
     }
 }

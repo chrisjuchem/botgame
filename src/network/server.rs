@@ -267,9 +267,8 @@ fn process_abilities(
             continue;
         }
 
-        let Ok(card) = cards.get(
-            loc_idx.lookup_single(&GridLocation { owner: *pid, coord: activation.unit_location }),
-        ) else {
+        let source_loc = GridLocation { owner: *pid, coord: activation.unit_location };
+        let Ok(card) = cards.get(loc_idx.lookup_single(&source_loc)) else {
             server.send_error(&client_id, "No unit there.");
             continue;
         };
@@ -286,10 +285,14 @@ fn process_abilities(
 
         let energy_cost = cost.get(&effect).energy;
         if energy_cost > card.energy.current {
-            server.send_error(&client_id, "Not enough energy.")
+            server.send_error(&client_id, "Not enough energy.");
+            continue;
         }
 
-        // todo validate targets
+        if !target_rules.validate(&activation.targets, &mut loc_idx, &cards, &source_loc) {
+            server.send_error(&client_id, "Invalid Targets.");
+            continue;
+        }
 
         effects.send(EffectEvent {
             match_id: activation.match_id,

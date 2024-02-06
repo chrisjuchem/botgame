@@ -106,18 +106,23 @@ pub fn update_card_transforms(
 
 #[derive(Component)]
 pub struct StatsPanel(pub Entity);
-#[derive(Component)]
-pub struct HoverPanel(pub Entity);
+// #[derive(Component)]
+// pub struct HoverPanel(pub Entity);
 
 pub fn update_stat_overlays(
     cards: Query<(&Name, &Energy, &Health, &Transform)>,
-    mut stats: Query<(&mut Text, &mut Style, &Node, &StatsPanel)>,
+    mut stats: Query<(Entity, &mut Text, &mut Style, &Node, &StatsPanel)>,
     camera: Query<(&Camera, &GlobalTransform)>,
+    mut commands: Commands,
 ) {
     let (cam, cam_pos) = camera.single();
 
-    for (mut txt, mut style, node, source) in &mut stats {
-        let (name, energy, health, transform) = cards.get(source.0).unwrap();
+    for (e, mut txt, mut style, node, source) in &mut stats {
+        let Ok((name, energy, health, transform)) = cards.get(source.0) else {
+            // base card was despaawned
+            commands.entity(e).despawn_recursive();
+            continue;
+        };
 
         let Some(coord) = cam.world_to_viewport(cam_pos, transform.translation) else { continue };
         style.position_type = PositionType::Absolute;
@@ -351,6 +356,7 @@ pub fn create_ability_overlay(
                     left: Val::Px(left),
                     ..default()
                 },
+                z_index: ZIndex::Global(1),
                 background_color: Color::WHITE.into(),
                 ..default()
             },
