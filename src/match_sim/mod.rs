@@ -257,6 +257,7 @@ fn common_effects(
                 }
             },
             Effect::DestroyCard => {
+                // triggering abilities handled by server effects
                 for t in targets {
                     println!("despawn {t:?}");
                     commands.entity(loc_idx.lookup_single(t)).despawn_recursive();
@@ -311,6 +312,7 @@ fn server_effects(
                                             targets: vec![target],
                                         })
                                     },
+                                    PassiveEffect::WhenDies { .. } => {},
                                 }
                             }
                         }
@@ -334,11 +336,39 @@ fn server_effects(
                     })
                 }
             },
+            Effect::DestroyCard => {
+                // despawning handled by common effects
+                for t in targets {
+                    for (ability, ability_source_loc) in cards
+                        .iter_many(match_idx.lookup(match_id))
+                        .flat_map(|card| card.abilities.0.iter().map(|a| (a, *card.grid_loc)))
+                    {
+                        if let Ability::Passive { passive_effect, target_filter } = ability {
+                            if target_filter.validate(t, &mut loc_idx, &cards, &ability_source_loc)
+                            {
+                                if let PassiveEffect::WhenDies { effect, target_rules } =
+                                    passive_effect
+                                {
+                                    let target = match target_rules {
+                                        ImplicitTargetRules::ThisUnit => ability_source_loc,
+                                        ImplicitTargetRules::ThatUnit => *t,
+                                    };
+
+                                    new_events.push(EffectEvent {
+                                        match_id: *match_id,
+                                        effect: effect.clone(),
+                                        targets: vec![target],
+                                    })
+                                }
+                            }
+                        }
+                    }
+                }
+            },
             Effect::SummonCard { .. }
             | Effect::GrantAbility { .. }
             | Effect::ChangeHp { .. }
-            | Effect::ChangeEnergy { .. }
-            | Effect::DestroyCard => {
+            | Effect::ChangeEnergy { .. } => {
                 // Handled by common_effects
             },
         }

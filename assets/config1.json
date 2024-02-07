@@ -160,8 +160,8 @@
                       },
                       "target_rules": {
                         "amount": {
-                          "N": {
-                            "n": 1
+                          "UpToN": {
+                            "n": 3
                           }
                         },
                         "filter": "Occupied"
@@ -194,8 +194,8 @@
                       },
                       "target_rules": {
                         "amount": {
-                          "N": {
-                            "n": 1
+                          "UpToN": {
+                            "n": 3
                           }
                         },
                         "filter": "Occupied"
@@ -225,6 +225,30 @@
                 "Unoccupied"
               ]
             }
+          }
+        }
+      },
+      {
+        "Activated": {
+          "effect": {
+            "MultipleEffects": {
+              "effects": []
+            }
+          },
+          "cost": {
+            "Static": {
+              "cost": {
+                "energy": 0
+              }
+            }
+          },
+          "target_rules": {
+            "amount": {
+              "N": {
+                "n": 0
+              }
+            },
+            "filter": "Any"
           }
         }
       }

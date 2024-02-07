@@ -78,6 +78,12 @@ impl PassiveEffect {
             PassiveEffect::WhenHit { effect, target_rules } => {
                 format!("Whenever a {target_str} is hit, {}", effect.full_text(target_rules.text()))
             },
+            PassiveEffect::WhenDies { effect, target_rules } => {
+                format!(
+                    "Whenever a {target_str} is destroyed, {}",
+                    effect.full_text(target_rules.text())
+                )
+            },
         }
     }
 }

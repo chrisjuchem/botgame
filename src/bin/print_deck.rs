@@ -1,7 +1,7 @@
 use std::vec;
 
 use botgame::cards::{
-    summon_cost, Ability, AbilityCost, Card, Cost, Effect, Effect::ChangeEnergy, EffectType,
+    summon_cost, Ability, AbilityCost, Card, Cost, Effect, Effect::MultipleEffects, EffectType,
     ImplicitTargetRules, PassiveEffect, TargetAmount, TargetFilter, TargetRules,
 };
 use serde::Serialize;
@@ -11,7 +11,39 @@ struct Deck {
     deck: Card,
 }
 
-pub fn deck1() -> Card {
+fn make_deck(cards: Vec<Card>) -> Card {
+    Card {
+        name: "Command Center".to_string(),
+        summon_cost: Cost::FREE,
+        hp: 50,
+        abilities: cards
+            .into_iter()
+            .map(|card| Ability::Activated {
+                effect: Effect::SummonCard { card },
+                cost: AbilityCost::Derived { func: &summon_cost },
+                target_rules: TargetRules {
+                    amount: TargetAmount::N { n: 1 },
+                    filter: TargetFilter::And(vec![
+                        TargetFilter::Friendly,
+                        TargetFilter::Unoccupied,
+                    ]),
+                },
+            })
+            .chain(std::iter::once(Ability::Activated {
+                effect: MultipleEffects { effects: vec![] },
+                cost: AbilityCost::Static { cost: Cost::FREE },
+                target_rules: TargetRules {
+                    amount: TargetAmount::N { n: 0 },
+                    filter: TargetFilter::Any,
+                },
+            }))
+            .collect(),
+        max_energy: 10,
+        starting_energy: 3,
+    }
+}
+
+fn aoe_deck() -> Card {
     let deck = vec![
         Card {
             name: "Shrapnel Bot".to_string(),
@@ -34,7 +66,7 @@ pub fn deck1() -> Card {
             hp: 10,
             abilities: vec![Ability::Passive {
                 passive_effect: PassiveEffect::WhenHit {
-                    effect: ChangeEnergy { amount: 2 },
+                    effect: Effect::ChangeEnergy { amount: 2 },
                     target_rules: ImplicitTargetRules::ThatUnit,
                 },
                 target_filter: TargetFilter::And(vec![
@@ -63,6 +95,91 @@ pub fn deck1() -> Card {
                     },
                     cost: AbilityCost::Static { cost: Cost { energy: 3 } },
                     target_rules: TargetRules {
+                        amount: TargetAmount::UpToN { n: 3 },
+                        filter: TargetFilter::Occupied,
+                    },
+                },
+                Ability::Activated {
+                    effect: Effect::GrantAbility {
+                        ability: Box::new(Ability::Passive {
+                            passive_effect: PassiveEffect::DamageResistance {
+                                effect_type: EffectType::Physical,
+                                factor: 0.5,
+                            },
+                            target_filter: TargetFilter::ThisUnit,
+                        }),
+                    },
+                    cost: AbilityCost::Static { cost: Cost { energy: 3 } },
+                    target_rules: TargetRules {
+                        amount: TargetAmount::UpToN { n: 3 },
+                        filter: TargetFilter::Occupied,
+                    },
+                },
+            ],
+            starting_energy: 2,
+            max_energy: 5,
+        },
+    ];
+
+    make_deck(deck)
+}
+
+pub fn gigablaster_deck() -> Card {
+    let deck = vec![
+        Card {
+            name: "GIGABLASTER".to_string(),
+            summon_cost: Cost { energy: 0 },
+            hp: 15,
+            abilities: vec![
+                Ability::Activated {
+                    effect: Effect::Attack { damage: 50, effect_type: EffectType::Explosion },
+                    cost: AbilityCost::Static { cost: Cost { energy: 50 } },
+                    target_rules: TargetRules {
+                        amount: TargetAmount::N { n: 1 },
+                        filter: TargetFilter::Occupied,
+                    },
+                },
+                Ability::Passive {
+                    passive_effect: PassiveEffect::WhenDies {
+                        effect: Effect::ChangeEnergy { amount: 5 },
+                        target_rules: ImplicitTargetRules::ThisUnit,
+                    },
+                    target_filter: TargetFilter::And(vec![
+                        TargetFilter::Friendly,
+                        TargetFilter::Occupied,
+                    ]),
+                },
+            ],
+            starting_energy: 3,
+            max_energy: 50,
+        },
+        Card {
+            name: "Self destruct bot".to_string(),
+            summon_cost: Cost { energy: 2 },
+            hp: 3,
+            abilities: vec![{
+                Ability::Activated {
+                    effect: Effect::Attack { damage: 3, effect_type: EffectType::Explosion },
+                    cost: AbilityCost::Static { cost: Cost { energy: 1 } },
+                    //todo two phase targeting
+                    target_rules: TargetRules {
+                        amount: TargetAmount::N { n: 2 },
+                        filter: TargetFilter::Occupied,
+                    },
+                }
+            }],
+            starting_energy: 0,
+            max_energy: 1,
+        },
+        Card {
+            name: "Protection Bot".to_string(),
+            summon_cost: Cost { energy: 2 },
+            hp: 4,
+            abilities: vec![
+                Ability::Activated {
+                    effect: Effect::ChangeHp { amount: 5 },
+                    cost: AbilityCost::Static { cost: Cost { energy: 3 } },
+                    target_rules: TargetRules {
                         amount: TargetAmount::N { n: 1 },
                         filter: TargetFilter::Occupied,
                     },
@@ -83,35 +200,63 @@ pub fn deck1() -> Card {
                         filter: TargetFilter::Occupied,
                     },
                 },
+                Ability::Activated {
+                    effect: Effect::GrantAbility {
+                        ability: Box::new(Ability::Passive {
+                            passive_effect: PassiveEffect::DamageResistance {
+                                effect_type: EffectType::Explosion,
+                                factor: 0.5,
+                            },
+                            target_filter: TargetFilter::ThisUnit,
+                        }),
+                    },
+                    cost: AbilityCost::Static { cost: Cost { energy: 3 } },
+                    target_rules: TargetRules {
+                        amount: TargetAmount::N { n: 1 },
+                        filter: TargetFilter::Occupied,
+                    },
+                },
+                Ability::Activated {
+                    effect: Effect::GrantAbility {
+                        ability: Box::new(Ability::Passive {
+                            passive_effect: PassiveEffect::DamageResistance {
+                                effect_type: EffectType::Electrical,
+                                factor: 0.5,
+                            },
+                            target_filter: TargetFilter::ThisUnit,
+                        }),
+                    },
+                    cost: AbilityCost::Static { cost: Cost { energy: 3 } },
+                    target_rules: TargetRules {
+                        amount: TargetAmount::N { n: 1 },
+                        filter: TargetFilter::Occupied,
+                    },
+                },
+                Ability::Activated {
+                    effect: Effect::GrantAbility {
+                        ability: Box::new(Ability::Passive {
+                            passive_effect: PassiveEffect::DamageResistance {
+                                effect_type: EffectType::Fire,
+                                factor: 0.5,
+                            },
+                            target_filter: TargetFilter::ThisUnit,
+                        }),
+                    },
+                    cost: AbilityCost::Static { cost: Cost { energy: 3 } },
+                    target_rules: TargetRules {
+                        amount: TargetAmount::N { n: 1 },
+                        filter: TargetFilter::Occupied,
+                    },
+                },
             ],
             starting_energy: 2,
             max_energy: 5,
         },
     ];
 
-    Card {
-        name: "Command Center".to_string(),
-        summon_cost: Cost::FREE,
-        hp: 50,
-        abilities: deck
-            .into_iter()
-            .map(|card| Ability::Activated {
-                effect: Effect::SummonCard { card },
-                cost: AbilityCost::Derived { func: &summon_cost },
-                target_rules: TargetRules {
-                    amount: TargetAmount::N { n: 1 },
-                    filter: TargetFilter::And(vec![
-                        TargetFilter::Friendly,
-                        TargetFilter::Unoccupied,
-                    ]),
-                },
-            })
-            .collect(),
-        max_energy: 10,
-        starting_energy: 3,
-    }
+    make_deck(deck)
 }
 
 fn main() {
-    println!("{}", serde_json::to_string_pretty(&Deck { deck: deck1() }).unwrap())
+    println!("{}", serde_json::to_string_pretty(&Deck { deck: aoe_deck() }).unwrap())
 }

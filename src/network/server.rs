@@ -289,7 +289,27 @@ fn process_abilities(
             continue;
         }
 
-        if !target_rules.validate(&activation.targets, &mut loc_idx, &cards, &source_loc) {
+        let next_player = clients
+            .0
+            .get(
+                client_map
+                    .0
+                    .get(&activation.match_id)
+                    .unwrap()
+                    .iter()
+                    .filter(|c| **c != client_id)
+                    .next()
+                    .unwrap(),
+            )
+            .unwrap()
+            .unwrap();
+        if !target_rules.validate(
+            &activation.targets,
+            &mut loc_idx,
+            &cards,
+            &[*pid, next_player],
+            &source_loc,
+        ) {
             server.send_error(&client_id, "Invalid Targets.");
             continue;
         }
@@ -305,20 +325,6 @@ fn process_abilities(
             targets: activation.targets,
         });
 
-        let next_player = clients
-            .0
-            .get(
-                client_map
-                    .0
-                    .get(&activation.match_id)
-                    .unwrap()
-                    .iter()
-                    .filter(|c| **c != client_id)
-                    .next()
-                    .unwrap(),
-            )
-            .unwrap()
-            .unwrap();
         turns.send(NewTurnEvent { match_id: activation.match_id, next_player });
         effects.send(EffectEvent {
             match_id: activation.match_id,

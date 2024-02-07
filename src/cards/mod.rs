@@ -3,13 +3,17 @@ pub mod text;
 
 use std::fmt::{Debug, Formatter};
 
+use bevy::math::UVec2;
 use bevy_mod_index::index::Index;
 use serde::{
     de::{Error, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 
-use crate::match_sim::{Cards, GridLocation};
+use crate::{
+    match_sim::{Cards, GridLocation, PlayerId},
+    ui::game_scene::{GRID_H, GRID_W},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Card {
@@ -126,6 +130,7 @@ pub enum Effect {
 pub enum PassiveEffect {
     DamageResistance { effect_type: EffectType, factor: f32 },
     WhenHit { effect: Effect, target_rules: ImplicitTargetRules },
+    WhenDies { effect: Effect, target_rules: ImplicitTargetRules },
     // ModifySummonCost
     // ModifyAbilityCost ??
 }
@@ -157,13 +162,39 @@ impl TargetRules {
         targets: &[GridLocation],
         loc_idx: &mut Index<GridLocation>,
         cards: &Cards,
+        players: &[PlayerId],
         effect_source: &GridLocation,
     ) -> bool {
-        if !self.amount.validate(targets.len(), cards) {
+        // todo: not verify untargeted squares unless needed for `All`
+
+        let mut total_valid = 0;
+        let mut targeted_valid = 0;
+        for x in 0..(GRID_H as u32 / 2) {
+            for y in 0..(GRID_W as u32) {
+                for p in players {
+                    let loc = GridLocation { coord: UVec2::new(x, y), owner: *p };
+
+                    let valid = self.filter.validate(&loc, loc_idx, cards, effect_source);
+                    if valid {
+                        total_valid += 1;
+                    }
+
+                    if targets.contains(&loc) {
+                        if valid {
+                            targeted_valid += 1;
+                        } else {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+
+        if targeted_valid != targets.len() {
             return false;
         }
 
-        targets.iter().all(|loc| self.filter.validate(loc, loc_idx, cards, effect_source))
+        self.amount.validate(targeted_valid, total_valid)
     }
 }
 
@@ -174,15 +205,11 @@ pub enum TargetAmount {
     UpToN { n: usize },
 }
 impl TargetAmount {
-    pub fn validate(&self, x: usize, cards: &Cards) -> bool {
+    pub fn validate(&self, targeted_valid: usize, total_valid: usize) -> bool {
         match self {
-            TargetAmount::N { n } => *n == x,
-            TargetAmount::UpToN { n } => x <= *n,
-            TargetAmount::All => {
-                // TODO not assume occupied
-                let total = cards.iter().count();
-                x == total
-            },
+            TargetAmount::N { n } => *n == targeted_valid,
+            TargetAmount::UpToN { n } => targeted_valid <= *n,
+            TargetAmount::All => targeted_valid == total_valid,
         }
     }
 }

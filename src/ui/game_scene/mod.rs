@@ -131,7 +131,7 @@ pub fn update_stat_overlays(
 
         *txt = Text {
             sections: vec![TextSection::new(
-                format!("{}\nenergy: {}/{}\n {} hp", name, energy.current, energy.max, health.0),
+                format!("{}\n{} HP\n{}/{} energy", name, health.0, energy.current, energy.max),
                 TextStyle { font_size: 15.0, color: Color::WHITE, ..default() },
             )],
             alignment: TextAlignment::Center,

@@ -199,6 +199,7 @@ pub fn check_targets(
     targeting: Res<Targeting>,
     mut btn: Query<&mut GameButton, With<TargetingSubmit>>,
     mut grid_idx: Index<GridLocation>,
+    players: Query<&PlayerId>,
 ) {
     let card = cards.get(targeting.source).unwrap();
     let ability = card.abilities.0.get(targeting.ability_idx).unwrap();
@@ -206,8 +207,9 @@ pub fn check_targets(
         panic!("Activated passive abillity!");
     };
 
+    let players = players.iter().copied().collect::<Vec<PlayerId>>();
     let targets_valid =
-        target_rules.validate(&targeting.chosen, &mut grid_idx, &cards, card.grid_loc);
+        target_rules.validate(&targeting.chosen, &mut grid_idx, &cards, &players, card.grid_loc);
 
     let mut btn = btn.single_mut();
     if targets_valid && !btn.active {

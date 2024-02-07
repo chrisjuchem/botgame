@@ -9,7 +9,7 @@ pub mod network;
 pub mod ui;
 pub mod utils;
 
-use bevy::{log::LogPlugin, prelude::*};
+use bevy::{input::common_conditions::input_toggle_active, log::LogPlugin, prelude::*};
 use wasm_bindgen::prelude::*;
 
 use crate::{
@@ -58,7 +58,10 @@ pub fn run_client() {
     app.add_plugins(DefaultPlugins.set(log_plugin()));
     app.add_plugins((ClientPlugin, MatchSimPlugin { server: false }, NwDebugPlugin, ScenePlugin));
 
-    app.add_plugins(bevy_inspector_egui::quick::WorldInspectorPlugin::new());
+    app.add_plugins(
+        bevy_inspector_egui::quick::WorldInspectorPlugin::new()
+            .run_if(input_toggle_active(false, KeyCode::I)),
+    );
     // app.add_systems(Startup, |mut c: ResMut<RenetClient>| {
     //     c.send(JoinMatchmakingQueueMessage { player_name: "p1".to_string(), deck: cards::deck() })
     // });
