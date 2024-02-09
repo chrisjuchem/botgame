@@ -1,0 +1,44 @@
+Feb 08 2024 - Edward Edwards 6:30 - 8:30
+
+war game: red dragon
+- RTS+cards
+- summon early or stronger later
+show cards w/o cost
+
+# cards in deck, see all, choose n
+
+nebulous fleet command - power budgets
+
+Deck ideas
+- overstatted vanilla creatures attack forward only
+- command center spells
+
+- shrapnel bot
+- on hit: gain damage
+- cheap healer
+
+
+
+Use placement matters more.
+count copies of the same bot (tesla coil bot, charging each other bot)
+count times another ability has been used (powering up a sacrifice demon)
+
+
+go make vanilla beaters with variable types and resistances
+
+actions shouldn't cancel each other
+
+(playtesting deckbuilding) board wipes to reset snowballing
+
+mining = 2-axis who's the beatdown
+- opens more deck archetypes
+- interesting, but doesn't fix snowballing
+- board space on back row limits pacifist archetypes
+
+need some number of axes to get ahead on so falling behind in one isnt fatal (mtg has cards, mana, life, board)
+
+attacks restricted to only directly in front could prevent snowballing
+
+what does an aggro deck look like????
+
+we played a game!!!
