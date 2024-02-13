@@ -1,15 +1,9 @@
 use std::vec;
 
 use botgame::cards::{
-    summon_cost, Ability, AbilityCost, Card, Cost, Effect, Effect::MultipleEffects, EffectType,
-    ImplicitTargetRules, PassiveEffect, TargetAmount, TargetFilter, TargetRules,
+    deck::Deck, summon_cost, Ability, AbilityCost, Card, Cost, Effect, Effect::MultipleEffects,
+    EffectType, ImplicitTargetRules, PassiveEffect, TargetAmount, TargetFilter, TargetRules,
 };
-use serde::Serialize;
-
-#[derive(Serialize)]
-struct Deck {
-    deck: Card,
-}
 
 fn make_deck(cards: Vec<Card>) -> Card {
     Card {
@@ -258,5 +252,5 @@ pub fn gigablaster_deck() -> Card {
 }
 
 fn main() {
-    println!("{}", serde_json::to_string_pretty(&Deck { deck: aoe_deck() }).unwrap())
+    println!("{}", serde_json::to_string_pretty(&Deck { deck: gigablaster_deck() }).unwrap())
 }

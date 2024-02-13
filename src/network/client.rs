@@ -16,7 +16,6 @@ use extension_trait::extension_trait;
 use serde::Deserialize;
 
 use crate::{
-    cards::Card,
     match_sim::{EffectEvent, NewTurnEvent, StartMatchEvent, Us},
     network::{
         messages::{EffectMessage, NetworkMessage, NewTurnMessage, ProtocolErrorMessage},
@@ -28,7 +27,6 @@ use crate::{
 pub struct ClientConfig {
     pub server_ip: IpAddr,
     pub client_id: u64,
-    pub deck: Card,
 }
 
 pub struct ClientPlugin;

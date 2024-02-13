@@ -1,3 +1,4 @@
+pub mod deck;
 pub mod mesh;
 pub mod text;
 

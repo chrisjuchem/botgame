@@ -1,0 +1,378 @@
+{
+  "deck": {
+    "name": "Command Center",
+    "summon_cost": {
+      "energy": 0
+    },
+    "hp": 50,
+    "abilities": [
+      {
+        "Activated": {
+          "effect": {
+            "SummonCard": {
+              "card": {
+                "name": "GIGABLASTER",
+                "summon_cost": {
+                  "energy": 0
+                },
+                "hp": 15,
+                "abilities": [
+                  {
+                    "Activated": {
+                      "effect": {
+                        "Attack": {
+                          "damage": 50,
+                          "effect_type": "Explosion"
+                        }
+                      },
+                      "cost": {
+                        "Static": {
+                          "cost": {
+                            "energy": 50
+                          }
+                        }
+                      },
+                      "target_rules": {
+                        "amount": {
+                          "N": {
+                            "n": 1
+                          }
+                        },
+                        "filter": "Occupied"
+                      }
+                    }
+                  },
+                  {
+                    "Passive": {
+                      "passive_effect": {
+                        "WhenDies": {
+                          "effect": {
+                            "ChangeEnergy": {
+                              "amount": 5
+                            }
+                          },
+                          "target_rules": "ThisUnit"
+                        }
+                      },
+                      "target_filter": {
+                        "And": [
+                          "Friendly",
+                          "Occupied"
+                        ]
+                      }
+                    }
+                  }
+                ],
+                "starting_energy": 3,
+                "max_energy": 50
+              }
+            }
+          },
+          "cost": {
+            "Derived": {
+              "func": "&dyn botgame::cards::DerivedCostFunc<Output = botgame::cards::Cost>"
+            }
+          },
+          "target_rules": {
+            "amount": {
+              "N": {
+                "n": 1
+              }
+            },
+            "filter": {
+              "And": [
+                "Friendly",
+                "Unoccupied"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "Activated": {
+          "effect": {
+            "SummonCard": {
+              "card": {
+                "name": "Self destruct bot",
+                "summon_cost": {
+                  "energy": 2
+                },
+                "hp": 3,
+                "abilities": [
+                  {
+                    "Activated": {
+                      "effect": {
+                        "Attack": {
+                          "damage": 3,
+                          "effect_type": "Explosion"
+                        }
+                      },
+                      "cost": {
+                        "Static": {
+                          "cost": {
+                            "energy": 1
+                          }
+                        }
+                      },
+                      "target_rules": {
+                        "amount": {
+                          "N": {
+                            "n": 2
+                          }
+                        },
+                        "filter": "Occupied"
+                      }
+                    }
+                  }
+                ],
+                "starting_energy": 0,
+                "max_energy": 1
+              }
+            }
+          },
+          "cost": {
+            "Derived": {
+              "func": "&dyn botgame::cards::DerivedCostFunc<Output = botgame::cards::Cost>"
+            }
+          },
+          "target_rules": {
+            "amount": {
+              "N": {
+                "n": 1
+              }
+            },
+            "filter": {
+              "And": [
+                "Friendly",
+                "Unoccupied"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "Activated": {
+          "effect": {
+            "SummonCard": {
+              "card": {
+                "name": "Protection Bot",
+                "summon_cost": {
+                  "energy": 2
+                },
+                "hp": 4,
+                "abilities": [
+                  {
+                    "Activated": {
+                      "effect": {
+                        "ChangeHp": {
+                          "amount": 5
+                        }
+                      },
+                      "cost": {
+                        "Static": {
+                          "cost": {
+                            "energy": 3
+                          }
+                        }
+                      },
+                      "target_rules": {
+                        "amount": {
+                          "N": {
+                            "n": 1
+                          }
+                        },
+                        "filter": "Occupied"
+                      }
+                    }
+                  },
+                  {
+                    "Activated": {
+                      "effect": {
+                        "GrantAbility": {
+                          "ability": {
+                            "Passive": {
+                              "passive_effect": {
+                                "DamageResistance": {
+                                  "effect_type": "Physical",
+                                  "factor": 0.5
+                                }
+                              },
+                              "target_filter": "ThisUnit"
+                            }
+                          }
+                        }
+                      },
+                      "cost": {
+                        "Static": {
+                          "cost": {
+                            "energy": 3
+                          }
+                        }
+                      },
+                      "target_rules": {
+                        "amount": {
+                          "N": {
+                            "n": 1
+                          }
+                        },
+                        "filter": "Occupied"
+                      }
+                    }
+                  },
+                  {
+                    "Activated": {
+                      "effect": {
+                        "GrantAbility": {
+                          "ability": {
+                            "Passive": {
+                              "passive_effect": {
+                                "DamageResistance": {
+                                  "effect_type": "Explosion",
+                                  "factor": 0.5
+                                }
+                              },
+                              "target_filter": "ThisUnit"
+                            }
+                          }
+                        }
+                      },
+                      "cost": {
+                        "Static": {
+                          "cost": {
+                            "energy": 3
+                          }
+                        }
+                      },
+                      "target_rules": {
+                        "amount": {
+                          "N": {
+                            "n": 1
+                          }
+                        },
+                        "filter": "Occupied"
+                      }
+                    }
+                  },
+                  {
+                    "Activated": {
+                      "effect": {
+                        "GrantAbility": {
+                          "ability": {
+                            "Passive": {
+                              "passive_effect": {
+                                "DamageResistance": {
+                                  "effect_type": "Electrical",
+                                  "factor": 0.5
+                                }
+                              },
+                              "target_filter": "ThisUnit"
+                            }
+                          }
+                        }
+                      },
+                      "cost": {
+                        "Static": {
+                          "cost": {
+                            "energy": 3
+                          }
+                        }
+                      },
+                      "target_rules": {
+                        "amount": {
+                          "N": {
+                            "n": 1
+                          }
+                        },
+                        "filter": "Occupied"
+                      }
+                    }
+                  },
+                  {
+                    "Activated": {
+                      "effect": {
+                        "GrantAbility": {
+                          "ability": {
+                            "Passive": {
+                              "passive_effect": {
+                                "DamageResistance": {
+                                  "effect_type": "Fire",
+                                  "factor": 0.5
+                                }
+                              },
+                              "target_filter": "ThisUnit"
+                            }
+                          }
+                        }
+                      },
+                      "cost": {
+                        "Static": {
+                          "cost": {
+                            "energy": 3
+                          }
+                        }
+                      },
+                      "target_rules": {
+                        "amount": {
+                          "N": {
+                            "n": 1
+                          }
+                        },
+                        "filter": "Occupied"
+                      }
+                    }
+                  }
+                ],
+                "starting_energy": 2,
+                "max_energy": 5
+              }
+            }
+          },
+          "cost": {
+            "Derived": {
+              "func": "&dyn botgame::cards::DerivedCostFunc<Output = botgame::cards::Cost>"
+            }
+          },
+          "target_rules": {
+            "amount": {
+              "N": {
+                "n": 1
+              }
+            },
+            "filter": {
+              "And": [
+                "Friendly",
+                "Unoccupied"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "Activated": {
+          "effect": {
+            "MultipleEffects": {
+              "effects": []
+            }
+          },
+          "cost": {
+            "Static": {
+              "cost": {
+                "energy": 0
+              }
+            }
+          },
+          "target_rules": {
+            "amount": {
+              "N": {
+                "n": 0
+              }
+            },
+            "filter": "Any"
+          }
+        }
+      }
+    ],
+    "starting_energy": 3,
+    "max_energy": 10
+  }
+}

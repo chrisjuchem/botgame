@@ -8,7 +8,10 @@ use bevy_framepace::FramepacePlugin;
 use bevy_mod_picking::prelude::{Pointer, *};
 
 use crate::{
-    cards::mesh::spawn_card_mesh,
+    cards::{
+        deck::{load_decks, Decks},
+        mesh::spawn_card_mesh,
+    },
     match_sim::StartMatchEvent,
     ui::{
         button::update_buttons,
@@ -35,6 +38,9 @@ impl Plugin for ScenePlugin {
         app.add_plugins(FramepacePlugin);
 
         app.add_state::<SceneState>();
+
+        app.init_resource::<Decks>();
+        app.add_systems(Startup, load_decks);
 
         app.add_systems(OnEnter(SceneState::MainMenu), spawn_main_menu);
         app.add_systems(OnExit(SceneState::MainMenu), despawn_all_with_marker::<MainMenu>);
