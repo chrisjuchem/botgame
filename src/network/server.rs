@@ -262,13 +262,13 @@ fn process_abilities(
             continue;
         };
 
-        if !cur_turns.get(player_idx.lookup_single(&pid)).unwrap() {
+        if !cur_turns.get(player_idx.single(&pid)).unwrap() {
             server.send_error(&client_id, "Not your turn.");
             continue;
         }
 
         let source_loc = GridLocation { owner: *pid, coord: activation.unit_location };
-        let Ok(card) = cards.get(loc_idx.lookup_single(&source_loc)) else {
+        let Ok(card) = cards.get(loc_idx.single(&source_loc)) else {
             server.send_error(&client_id, "No unit there.");
             continue;
         };

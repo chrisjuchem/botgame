@@ -249,7 +249,7 @@ pub fn create_ability_overlay(
         mouse_pos.x - size.x - side_offest
     };
 
-    let owners_turn = current_turns.get(player_idx.lookup_single(&card.grid_loc.owner)).unwrap();
+    let owners_turn = current_turns.get(player_idx.single(&card.grid_loc.owner)).unwrap();
     let buttons_active = owners_turn && card.grid_loc.owner == us.0;
 
     let scrollbar = commands

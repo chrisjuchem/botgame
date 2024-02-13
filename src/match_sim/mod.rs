@@ -61,7 +61,7 @@ impl MatchId {
     }
 }
 impl IndexInfo for MatchId {
-    type Components = &'static MatchId;
+    type Component = MatchId;
     type Value = MatchId;
     type Storage = HashmapStorage<Self>;
     type RefreshPolicy = SimpleRefreshPolicy;
@@ -79,7 +79,7 @@ impl PlayerId {
     }
 }
 impl IndexInfo for PlayerId {
-    type Components = &'static PlayerId;
+    type Component = PlayerId;
     type Value = PlayerId;
     type Storage = HashmapStorage<Self>;
     type RefreshPolicy = SimpleRefreshPolicy;
@@ -115,7 +115,7 @@ pub struct GridLocation {
     pub owner: PlayerId,
 }
 impl IndexInfo for GridLocation {
-    type Components = &'static GridLocation;
+    type Component = GridLocation;
     type Value = GridLocation;
     type Storage = HashmapStorage<Self>;
     type RefreshPolicy = ConservativeRefreshPolicy;
@@ -126,7 +126,7 @@ impl IndexInfo for GridLocation {
 }
 pub struct OwnerIndex;
 impl IndexInfo for OwnerIndex {
-    type Components = &'static GridLocation;
+    type Component = GridLocation;
     type Value = PlayerId;
     type Storage = HashmapStorage<Self>;
     type RefreshPolicy = ConservativeRefreshPolicy;
@@ -238,7 +238,7 @@ fn common_effects(
             Effect::GrantAbility { ability } => {
                 for t in targets {
                     cards
-                        .get_mut(loc_idx.lookup_single(t))
+                        .get_mut(loc_idx.single(t))
                         .unwrap()
                         .abilities
                         .0
@@ -247,12 +247,12 @@ fn common_effects(
             },
             Effect::ChangeHp { amount } => {
                 for t in targets {
-                    cards.get_mut(loc_idx.lookup_single(t)).unwrap().health.0 += amount;
+                    cards.get_mut(loc_idx.single(t)).unwrap().health.0 += amount;
                 }
             },
             Effect::ChangeEnergy { amount } => {
                 for t in targets {
-                    let mut e = cards.get_mut(loc_idx.lookup_single(t)).unwrap().energy;
+                    let mut e = cards.get_mut(loc_idx.single(t)).unwrap().energy;
                     e.current = (e.current as i32 + amount).clamp(0, e.max as i32) as u32;
                 }
             },
@@ -260,7 +260,7 @@ fn common_effects(
                 // triggering abilities handled by server effects
                 for t in targets {
                     println!("despawn {t:?}");
-                    commands.entity(loc_idx.lookup_single(t)).despawn_recursive();
+                    commands.entity(loc_idx.single(t)).despawn_recursive();
                 }
             },
             Effect::Attack { .. } | Effect::MultipleEffects { .. } => {
