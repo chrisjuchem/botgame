@@ -14,8 +14,9 @@ use crate::{
     },
     ui::{
         button::{ClickHandler, GameButton},
+        font::CustomText,
         game_scene::targeting::Targeting,
-        SceneState,
+        SceneState, UiManager,
     },
 };
 
@@ -124,104 +125,33 @@ pub fn update_stat_overlays(
             continue;
         };
 
-        let Some(coord) = cam.world_to_viewport(cam_pos, transform.translation) else { continue };
+        let Some(coord) = cam.world_to_ndc(cam_pos, transform.translation) else { continue };
         style.position_type = PositionType::Absolute;
-        style.top = Val::Px(coord.y + 15.);
-        style.left = Val::Px(coord.x - (node.size().x / 2.));
+        style.top = Val::Vh(2. + ((1. - coord.y) * 50.));
+        style.left = Val::Vw((coord.x + 1.) * 50.);
 
-        *txt = Text {
-            sections: vec![TextSection::new(
-                format!("{}\n{} HP\n{}/{} energy", name, health.0, energy.current, energy.max),
-                TextStyle { font_size: 15.0, color: Color::WHITE, ..default() },
-            )],
-            alignment: TextAlignment::Center,
-            ..default()
-        };
+        style.margin.left = Val::Px(-(node.size().x / 2.)); // updated every frame
+
+        txt.sections[0].value =
+            format!("{}\n{} ❤\n{}/{} 🔋", name, health.0, energy.current, energy.max);
     }
 }
 
-pub fn setup_new_cards(cards: Query<Entity, Added<BaseCard>>, mut commands: Commands) {
+pub fn setup_new_cards(
+    cards: Query<Entity, Added<BaseCard>>,
+    mut commands: Commands,
+    mut ui: UiManager,
+) {
     for e in &cards {
-        commands.spawn((
-            TextBundle::default(),
+        ui.spawn_text(CustomText::default().size(15.).color(Color::WHITE).centered()).insert((
             StatsPanel(e),
             MatchScenery,
             Name::new("stats_panel"),
         ));
-        // commands.spawn((TextBundle::default(), HoverPanel(e), MatchScenery));
-        commands.entity(e).insert((
-            MatchScenery,
-            // On::<Pointer<Over>>::run(show_hover_overlay),
-            // On::<Pointer<Out>>::run(hide_hover_overlay),
-            On::<Pointer<Click>>::run(create_ability_overlay),
-        ));
+        commands
+            .entity(e)
+            .insert((MatchScenery, On::<Pointer<Click>>::run(create_ability_overlay)));
     }
-}
-
-// fn show_hover_overlay(
-//     event: Listener<Pointer<Over>>,
-//     mut panel: Query<(Entity, &mut Text, &mut Style, &Node, &HoverPanel)>,
-//     cards: Query<&BaseCard>,
-//     mut commands: Commands,
-// ) {
-//     let target = event.listener();
-//     let card = cards.get(target).unwrap();
-//     let (e, mut txt, mut style, node, _) =
-//         panel.iter_mut().filter(|(_, _, _, _, panel)| panel.0 == target).next().unwrap();
-//
-//     style.display = Display::Flex;
-//     style.position_type = PositionType::Absolute;
-//     style.max_width = Val::Percent(20.);
-//
-//     *txt = Text {
-//         sections: vec![TextSection::new(&card.0.full_text(), TextStyle {
-//             font_size: 15.0,
-//             color: Color::WHITE,
-//             ..default()
-//         })],
-//         alignment: TextAlignment::Center,
-//         ..default()
-//     };
-//
-//     commands.entity(e).insert(FollowMouse { offset: Vec2::new(15., node.size().y / 2.) });
-// }
-//
-// #[derive(Component)]
-// pub struct FollowMouse {
-//     offset: Vec2,
-// }
-//
-// fn hide_hover_overlay(event: Listener<Pointer<Out>>, mut panel: Query<(&mut Style, &HoverPanel)>) {
-//     let card = event.listener();
-//     let mut style = panel
-//         .iter_mut()
-//         .filter_map(|(style, panel)| (panel.0 == card).then_some(style))
-//         .next()
-//         .unwrap();
-//
-//     style.display = Display::None;
-// }
-//
-// pub fn follow_mouse(mut nodes: Query<(&mut Style, &Node, &FollowMouse)>, window: Query<&Window>) {
-//     let Ok(window) = window.get_single() else { return };
-//     let Some(mouse_pos) = window.cursor_position() else { return };
-//     for (mut style, node, follow) in &mut nodes {
-//         let width = 15. + node.size().x;
-//
-//         style.top = Val::Px(f32::max(0., mouse_pos.y - node.size().y / 2.));
-//         if mouse_pos.x + width < window.width() {
-//             style.left = Val::Px(mouse_pos.x + 15.);
-//         } else {
-//             style.left = Val::Px(mouse_pos.x - node.size().x - 5.);
-//         }
-//     }
-// }
-
-#[derive(Component, Default)]
-pub struct Scroll {
-    current: f32,
-    step: f32,
-    target: f32,
 }
 
 pub fn create_ability_overlay(
@@ -232,14 +162,15 @@ pub fn create_ability_overlay(
     mut player_idx: Index<PlayerId>,
     us: Res<Us>,
     window: Query<&Window>,
+    mut ui: UiManager,
 ) {
     let card_entity = event.listener();
     let card = cards.get(card_entity).unwrap();
     let window = window.single();
 
-    let size = Vec2::new(0.2 * window.width(), 0.4 * window.height());
-    let side_offest = 20.;
-    let margin = UiRect::all(Val::Px(3.));
+    let size = Vec2::new(0.4 * window.height(), 0.5 * window.height());
+    let side_offest = window.width() / 50.;
+    let margin = UiRect::all(Val::Vh(0.5));
     let mouse_pos = window.cursor_position().unwrap();
 
     let top = (mouse_pos.y - (size.y / 2.)).clamp(0., window.height() - size.y);
@@ -255,10 +186,10 @@ pub fn create_ability_overlay(
     let scrollbar = commands
         .spawn((Name::new("scrollbar"), NodeBundle {
             style: Style {
-                width: Val::Px(4.),
+                width: Val::Vh(0.5),
                 height: Val::Percent(50.),
                 position_type: PositionType::Relative,
-                top: Val::Px(0.), //moved by scroll system
+                top: Val::Vh(0.), //moved by scroll system
                 margin,
                 ..default()
             },
@@ -281,7 +212,7 @@ pub fn create_ability_overlay(
             base.spawn((Name::new("abilities_list"), NodeBundle {
                 style: Style {
                     position_type: PositionType::Relative,
-                    top: Val::Px(0.), //moved by scroll system
+                    top: Val::Vh(0.), //moved by scroll system
                     flex_direction: FlexDirection::Column,
                     ..default()
                 },
@@ -299,15 +230,7 @@ pub fn create_ability_overlay(
                         };
 
                     base.spawn((
-                        TextBundle {
-                            style: Style { margin, ..default() },
-                            text: Text::from_section(ability.full_text(), TextStyle {
-                                font_size: 15.0,
-                                color: Color::WHITE,
-                                ..default()
-                            }),
-                            ..default()
-                        },
+                        NodeBundle { style: Style { margin, ..default() }, ..default() },
                         GameButton {
                             bg_color: Color::GRAY,
                             hover_color: Color::hex("#5aad65").unwrap(),
@@ -321,7 +244,13 @@ pub fn create_ability_overlay(
                             }),
                             active,
                         },
-                    ));
+                    ))
+                    .add_child(
+                        ui.spawn_text(
+                            CustomText::new(ability.full_text()).color(Color::WHITE).size(15.),
+                        )
+                        .id(),
+                    );
                 }
             });
         })
@@ -350,10 +279,10 @@ pub fn create_ability_overlay(
             NodeBundle {
                 style: Style {
                     position_type: PositionType::Absolute,
-                    width: Val::Px(size.x),
-                    height: Val::Px(size.y),
-                    top: Val::Px(top),
-                    left: Val::Px(left),
+                    width: Val::Vh(size.x * 100. / window.height()),
+                    height: Val::Vh(size.y * 100. / window.height()),
+                    top: Val::Vh(top * 100. / window.height()),
+                    left: Val::Vw(left * 100. / window.width()),
                     ..default()
                 },
                 z_index: ZIndex::Global(1),
@@ -378,12 +307,21 @@ pub fn create_ability_overlay(
     commands.entity(scene_shield).add_child(panel);
 }
 
+#[derive(Component, Default)]
+pub struct Scroll {
+    current: f32,
+    step: f32,
+    target: f32,
+}
+
 pub fn scroll(
     mut mouse_wheel_events: EventReader<MouseWheel>,
     mut container: Query<(&mut Scroll, &Children, &Interaction, &Node)>,
     mut inners: Query<(&mut Style, &Node, Option<&Children>)>,
+    windows: Query<&Window>,
 ) {
     let events = mouse_wheel_events.read().collect::<Vec<_>>();
+    let vh = if let Ok(window) = windows.get_single() { window.height() / 100. } else { return };
 
     for (mut scroll, children, interaction, parent_node) in &mut container {
         if parent_node.size().y == 0. {
@@ -393,17 +331,17 @@ pub fn scroll(
 
         let (_, content_window_node, content_window_kids) =
             inners.get_mut(*children.get(0).unwrap()).unwrap();
-        let content_window_h = content_window_node.size().y;
+        let content_window_h = content_window_node.size().y / vh;
         let content: Entity = *content_window_kids.unwrap().get(0).unwrap();
         let (mut content_style, content_node, _) = inners.get_mut(content).unwrap();
 
-        let max_scroll = (content_node.size().y - parent_node.size().y).max(0.);
+        let max_scroll = (content_node.size().y - parent_node.size().y).max(0.) / vh;
 
         for e in events.iter() {
             if matches!(interaction, Interaction::Hovered) {
                 scroll.target -= match e.unit {
-                    MouseScrollUnit::Line => e.y * 20.,
-                    MouseScrollUnit::Pixel => e.y,
+                    MouseScrollUnit::Line => e.y * 2.5,
+                    MouseScrollUnit::Pixel => e.y / 8.,
                 };
             }
             scroll.target = scroll.target.clamp(0., max_scroll);
@@ -423,28 +361,31 @@ pub fn scroll(
         } else {
             scroll.current -= scroll.step;
         }
-        content_style.top = Val::Px(-scroll.current);
-        let content_h = content_node.size().y;
+        content_style.top = Val::Vh(-scroll.current);
+        let content_h = content_node.size().y / vh;
 
         let (mut bar_style, bar_node, _) = inners.get_mut(*children.get(1).unwrap()).unwrap();
         let margin = match (bar_style.margin.top, bar_style.margin.bottom) {
-            (Val::Px(top), Val::Px(bottom)) => top + bottom,
-            _ => panic!("scrollbar margin must be in px"),
+            (Val::Vh(top), Val::Vh(bottom)) => top + bottom,
+            _ => panic!("scrollbar margin must be in Vh"),
         };
-        let h = parent_node.size().y - margin;
-        let bar_length = h * content_window_h / content_h;
-        let bar_top =
-            if max_scroll == 0. { 0. } else { (h - bar_length) * scroll.current / max_scroll };
+        let range_h = (parent_node.size().y / vh) - margin;
+        let bar_length = range_h * content_window_h / content_h;
+        let bar_top = if max_scroll == 0. {
+            0.
+        } else {
+            (range_h - bar_length) * scroll.current / max_scroll
+        };
 
-        if bar_length >= h {
+        if bar_length >= range_h {
             bar_style.display = Display::None;
         } else {
             bar_style.display = Display::Flex;
-            bar_style.height = Val::Px(bar_length);
-            bar_style.top = Val::Px(bar_top);
+            bar_style.height = Val::Vh(bar_length);
+            bar_style.top = Val::Vh(bar_top);
         }
         // println!(
-        //     "bar_length:{bar_length} bar_top:{bar_top} h:{h}, content_h:{content_h}, \
+        //     "bar_length:{bar_length} bar_top:{bar_top} h:{range_h}, content_h:{content_h}, \
         //      max_scroll:{max_scroll} scroll.current:{}, scroll.target:{}",
         //     scroll.current, scroll.target
         // );

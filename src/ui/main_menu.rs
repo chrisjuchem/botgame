@@ -5,7 +5,11 @@ use bevy_renet::renet::RenetClient;
 use crate::{
     cards::deck::Decks,
     network::{messages::JoinMatchmakingQueueMessage, ClientConfig, ClientExt},
-    ui::button::{ClickHandler, GameButton},
+    ui::{
+        button::{ClickHandler, GameButton},
+        font::{CustomText, DefaultFont},
+        UiManager,
+    },
 };
 
 #[derive(Component)]
@@ -14,7 +18,12 @@ pub struct MainMenu;
 #[derive(Component)]
 pub struct QueueButton;
 
-pub fn spawn_main_menu(mut commands: Commands, decks: Res<Decks>) {
+pub fn spawn_main_menu(
+    mut commands: Commands,
+    decks: Res<Decks>,
+    font: Res<DefaultFont>,
+    mut ui: UiManager,
+) {
     let deck_names = decks.0.keys().cloned().collect::<Vec<_>>();
 
     commands
@@ -34,32 +43,19 @@ pub fn spawn_main_menu(mut commands: Commands, decks: Res<Decks>) {
         .with_children(|base| {
             let base_button = NodeBundle {
                 style: Style {
-                    width: Val::Vw(30.),
-                    margin: UiRect::all(Val::Px(3.)),
+                    width: Val::Vh(45.),
+                    margin: UiRect::all(Val::Vh(0.4)),
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
 
                 ..default()
             };
-            fn button_text(text: impl Into<String>) -> TextBundle {
-                TextBundle {
-                    text: Text {
-                        sections: vec![TextSection::new(text, TextStyle {
-                            font_size: 30.0,
-                            color: Color::NAVY,
-                            ..default()
-                        })],
-                        alignment: TextAlignment::Center,
-                        ..default()
-                    },
-                    style: Style { border: UiRect::all(Val::Px(2.)), ..default() },
 
-                    ..default()
-                }
-            }
-
-            for name in deck_names.iter().cloned() {
+            let text = CustomText::default().size(30.).color(Color::NAVY).centered();
+            let mut decks = deck_names.iter().cloned().collect::<Vec<_>>();
+            decks.sort();
+            for name in decks {
                 let name_cloned = name.clone();
                 base.spawn((base_button.clone(), QueueButton, GameButton {
                     bg_color: Color::WHITE,
@@ -82,9 +78,9 @@ pub fn spawn_main_menu(mut commands: Commands, decks: Res<Decks>) {
                     ),
                     active: true,
                 }))
-                .with_children(|btn| {
-                    btn.spawn(button_text(format!("Find Match ({})", name_cloned)));
-                });
+                .add_child(
+                    ui.spawn_text(text.clone().text(format!("Find Match ({})", name_cloned))).id(),
+                );
             }
 
             base.spawn((base_button, GameButton {
@@ -96,8 +92,6 @@ pub fn spawn_main_menu(mut commands: Commands, decks: Res<Decks>) {
                 }),
                 active: true,
             }))
-            .with_children(|btn| {
-                btn.spawn(button_text("Quit"));
-            });
+            .add_child(ui.spawn_text(text.text("Quit")).id());
         });
 }

@@ -9,7 +9,9 @@ use crate::{
     network::{messages::ActivateAbilityMessage, ClientExt},
     ui::{
         button::{ClickHandler, GameButton},
+        font::CustomText,
         game_scene::{create_ability_overlay, BATTLEFIELD_H, BATTLEFIELD_W, GRID_H, GRID_W},
+        UiManager,
     },
 };
 
@@ -35,6 +37,7 @@ pub fn start_targeting(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut loc_idx: Index<GridLocation>,
     players: Query<&PlayerId>,
+    mut ui: UiManager,
 ) {
     if !targeting.is_added() {
         return;
@@ -44,26 +47,21 @@ pub fn start_targeting(
             style: Style {
                 position_type: PositionType::Absolute,
                 flex_direction: FlexDirection::Column,
-                bottom: Val::Px(0.),
-                right: Val::Px(0.),
+                bottom: Val::Vh(0.),
+                right: Val::Vh(0.),
                 ..default()
             },
             background_color: Color::BLUE.into(),
             ..default()
         }))
         .with_children(|base| {
-            let margin = UiRect::all(Val::Px(10.));
+            let margin = UiRect::all(Val::Vh(1.));
             base.spawn((
                 Name::new("targeting_submit"),
                 TargetingSubmit,
-                TextBundle {
+                NodeBundle {
                     style: Style { margin, padding: margin, ..default() },
-                    text: Text::from_section("Submit", TextStyle {
-                        font_size: 15.0,
-                        color: Color::WHITE,
-                        ..default()
-                    }),
-                    background_color: BackgroundColor(Color::RED),
+                    background_color: BackgroundColor(Color::GRAY), // replaced by targeting validation
                     ..default()
                 },
                 GameButton {
@@ -71,18 +69,14 @@ pub fn start_targeting(
                     hover_color: Color::hex("#5aad65").unwrap(),
                     disabled_color: Color::RED,
                     click_handler: ClickHandler::new(submit_targets),
-                    active: true,
+                    active: true, // replaced by targeting validation
                 },
-            ));
+            ))
+            .add_child(ui.spawn_text(CustomText::new("Submit").color(Color::WHITE).size(15.)).id());
             base.spawn((
                 Name::new("targeting_cancel"),
-                TextBundle {
+                NodeBundle {
                     style: Style { margin, padding: margin, ..default() },
-                    text: Text::from_section("Cancel", TextStyle {
-                        font_size: 15.0,
-                        color: Color::WHITE,
-                        ..default()
-                    }),
                     background_color: BackgroundColor(Color::GRAY),
                     ..default()
                 },
@@ -110,7 +104,8 @@ pub fn start_targeting(
                     ),
                     active: true,
                 },
-            ));
+            ))
+            .add_child(ui.spawn_text(CustomText::new("Cancel").color(Color::WHITE).size(15.)).id());
         });
 
     let source_card = cards.get(targeting.source).unwrap();

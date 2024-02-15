@@ -1,2 +1,4 @@
 /target
 /windows_build
+/logs
+*__pycache__
