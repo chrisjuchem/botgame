@@ -41,14 +41,12 @@ pub fn spawn_match(
     // table
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane::from_size(BATTLEFIELD_H))),
+            mesh: meshes.add(Mesh::from(Plane3d::new(Vec3::Z))),
             material: materials.add(StandardMaterial {
                 perceptual_roughness: 0.9,
                 ..Color::rgb(0.3, 0.5, 0.3).into()
             }),
-            transform: Transform::from_xyz(0., 0., 0.)
-                .looking_to(Vec3::Y, Vec3::Z)
-                .with_scale(Vec3::new(BATTLEFIELD_W / BATTLEFIELD_H, 1., 1.)),
+            transform: Transform::from_scale(Vec3::new(BATTLEFIELD_W, BATTLEFIELD_H, 1.)),
             ..default()
         },
         MatchScenery,

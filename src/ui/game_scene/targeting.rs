@@ -126,14 +126,16 @@ pub fn start_targeting(
 
                 let e = commands
                     .spawn((Name::new("floor_targeting_helper"), TargetingIndicator, PbrBundle {
-                        mesh: meshes.add(Mesh::from(shape::Plane::from_size(BATTLEFIELD_H / 4.5))),
+                        mesh: meshes.add(Plane3d::new(Vec3::Z)),
                         material: materials.add(StandardMaterial {
                             perceptual_roughness: 0.9,
                             ..Color::rgba(0.8, 0., 0., 0.1).into()
                         }),
-                        transform: Transform::from_xyz(0., 0., 0.01)
-                            .looking_to(Vec3::Y, Vec3::Z)
-                            .with_scale(Vec3::new(BATTLEFIELD_W / 5. / BATTLEFIELD_H * 4., 1., 1.)),
+                        transform: Transform::from_scale(Vec3::new(
+                            BATTLEFIELD_W / GRID_W * 0.8,
+                            BATTLEFIELD_H / GRID_H * 0.8,
+                            1.,
+                        )),
                         ..default()
                     }))
                     .id();

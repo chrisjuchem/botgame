@@ -88,7 +88,7 @@ pub fn spawn_main_menu(
                 hover_color: Color::GREEN,
                 disabled_color: Color::GRAY,
                 click_handler: ClickHandler::new(|mut quit: EventWriter<AppExit>| {
-                    quit.send(AppExit)
+                    quit.send(AppExit);
                 }),
                 active: true,
             }))

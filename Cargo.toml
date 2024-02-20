@@ -13,13 +13,21 @@ default= ["bevy_dylib"]
 bevy_dylib=["bevy/dynamic_linking"]
 
 [dependencies]
-bevy = "0.12"
-bevy-inspector-egui = "0.22.1"
-bevy_framepace = "0.14.1"
-bevy_mod_index = {path = "../bevy_mod_index"}
-bevy_mod_picking = { version="0.17.0", default-features=false, features = [ "backend_raycast", "backend_bevy_ui", "selection" ]  }
-bevy_eventlistener = "0.6.1"
-bevy_renet = "0.0.10"
+bevy = "0.13"
+
+bevy_mod_index = "0.4.0"
+
+#bevy-inspector-egui = "0.22.1"
+bevy-inspector-egui = {git="https://github.com/Aztro-dev/bevy-inspector-egui.git"}
+
+bevy_framepace = "0.15"
+#bevy_mod_picking = { version="0.17.0", default-features=false, features = [ "backend_raycast", "backend_bevy_ui", "selection" ]  }
+bevy_mod_picking = { git="https://github.com/StrikeForceZero/bevy_mod_picking.git", branch="bevy-0.13", default-features=false, features = [ "backend_raycast", "backend_bevy_ui", "selection" ]  }
+bevy_eventlistener = "0.7"
+
+#bevy_renet = "0.0.10"
+bevy_renet = {git="https://github.com/dgsantana/renet.git", branch="bevy_0_13"}
+
 bincode = "1.3.3"
 extension-trait = "1.0.2"
 serde = "1.0.195"

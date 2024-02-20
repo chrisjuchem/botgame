@@ -95,13 +95,14 @@ fn read_messages(
         match msg {
             NetworkMessage::MatchStartedMessage(data) => {
                 commands.insert_resource(Us(data.you));
-                start_match.send(StartMatchEvent { match_id: data.match_id, players: data.players })
+                start_match
+                    .send(StartMatchEvent { match_id: data.match_id, players: data.players });
             },
             NetworkMessage::EffectMessage(EffectMessage { match_id, effect, targets }) => {
                 effects.send(EffectEvent { match_id, effect, targets });
             },
             NetworkMessage::NewTurnMessage(NewTurnMessage { match_id, next_player }) => {
-                turns.send(NewTurnEvent { match_id, next_player })
+                turns.send(NewTurnEvent { match_id, next_player });
             },
             NetworkMessage::ProtocolErrorMessage(ProtocolErrorMessage { msg }) => {
                 log::error!("ProtocolError from server: {msg}")

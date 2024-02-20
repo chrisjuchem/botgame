@@ -60,7 +60,7 @@ pub fn run_client() {
 
     app.add_plugins(
         bevy_inspector_egui::quick::WorldInspectorPlugin::new()
-            .run_if(input_toggle_active(false, KeyCode::I)),
+            .run_if(input_toggle_active(false, KeyCode::KeyI)),
     );
     // app.add_systems(Startup, |mut c: ResMut<RenetClient>| {
     //     c.send(JoinMatchmakingQueueMessage { player_name: "p1".to_string(), deck: cards::deck() })

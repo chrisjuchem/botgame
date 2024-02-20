@@ -57,7 +57,7 @@ impl Plugin for ServerPlugin {
         app.insert_resource(MatchClientMap::default());
         app.insert_resource(AbilityQueue::default());
         app.add_systems(First, read_messages);
-        app.add_systems(PreUpdate, matchmaking.run_if(resource_changed::<MMQueue>()));
+        app.add_systems(PreUpdate, matchmaking.run_if(resource_changed::<MMQueue>));
         app.add_systems(
             Update,
             (process_abilities, send_match_start, send_effects, send_turn_change).chain(),

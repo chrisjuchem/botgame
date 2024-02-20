@@ -1,4 +1,4 @@
-use bevy::prelude::{shape::Cube, *};
+use bevy::prelude::*;
 use bevy_mod_picking::PickableBundle;
 
 use crate::match_sim::BaseCard;
@@ -16,7 +16,7 @@ pub fn spawn_card_mesh(
         commands.entity(e).remove::<NeedsMesh>().with_children(|root| {
             root.spawn((
                 PbrBundle {
-                    mesh: meshes.add(Mesh::from(Cube::new(1.5))),
+                    mesh: meshes.add(Cuboid::from_size(Vec3::splat(1.5))),
                     material: materials.add(StandardMaterial {
                         perceptual_roughness: 0.9,
                         ..Color::rgb(0.6, 0.5, 0.3).into()

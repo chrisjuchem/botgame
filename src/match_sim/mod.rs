@@ -1,7 +1,7 @@
 use std::ops::Deref;
 
 use bevy::{
-    ecs::{event::ManualEventReader, query::WorldQuery, system::BoxedSystem},
+    ecs::{event::ManualEventReader, query::QueryData, system::BoxedSystem},
     prelude::*,
 };
 use bevy_mod_index::prelude::*;
@@ -38,10 +38,10 @@ impl Plugin for MatchSimPlugin {
             Update,
             (
                 start_match,
-                apply_deferred,
+                // apply_deferred,
                 specialized_effects,
                 common_effects,
-                apply_deferred,
+                // apply_deferred,
                 state_based_effects,
                 next_turn,
             )
@@ -139,8 +139,8 @@ impl IndexInfo for OwnerIndex {
 #[derive(Component, Clone, Debug)]
 pub struct Abilities(pub Vec<Ability>);
 
-#[derive(WorldQuery, Debug)]
-#[world_query(mutable, derive(Debug))]
+#[derive(QueryData, Debug)]
+#[query_data(mutable, derive(Debug))]
 pub struct CardQuery {
     pub entity: Entity,
     pub match_id: &'static MatchId,
@@ -385,7 +385,7 @@ fn server_state_based(mut e: EventWriter<EffectEvent>, cards: Cards) {
                 match_id: *card.match_id,
                 effect: Effect::DestroyCard,
                 targets: vec![*card.grid_loc],
-            })
+            });
         }
     }
 }

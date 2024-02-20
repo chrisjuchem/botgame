@@ -29,9 +29,8 @@ use crate::{
     },
 };
 
-#[derive(States, Clone, Copy, PartialEq, Eq, Hash, Debug, Default)]
+#[derive(States, Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum SceneState {
-    #[default]
     MainMenu,
     Match,
 }
@@ -44,7 +43,7 @@ impl Plugin for ScenePlugin {
 
         app.add_plugins(FontPlugin);
 
-        app.add_state::<SceneState>();
+        app.insert_state(SceneState::MainMenu);
 
         app.init_resource::<Decks>();
         app.add_systems(Startup, load_decks);
@@ -54,12 +53,12 @@ impl Plugin for ScenePlugin {
         app.add_systems(OnEnter(SceneState::Match), spawn_match);
         app.add_systems(OnExit(SceneState::Match), despawn_all_with_marker::<MatchScenery>);
         // Hack to ensure `Out` handlers run before `Over`
-        app.add_systems(
-            PreUpdate,
-            (|| {})
-                .after(EventDispatcher::<Pointer<Out>>::bubble_events)
-                .before(EventDispatcher::<Pointer<Over>>::bubble_events),
-        );
+        // app.add_systems(
+        //     PreUpdate,
+        //     (|| {})
+        //         .after(EventDispatcher::<Pointer<Out>>::bubble_events)
+        //         .before(EventDispatcher::<Pointer<Over>>::bubble_events),
+        // );
 
         app.add_systems(Update, update_buttons);
         app.add_systems(Update, transition_to_match.run_if(on_event::<StartMatchEvent>()));
@@ -68,7 +67,7 @@ impl Plugin for ScenePlugin {
             (
                 spawn_card_mesh,
                 setup_new_cards,
-                apply_deferred,
+                // apply_deferred,
                 update_card_transforms,
                 update_stat_overlays,
                 scroll,
@@ -78,9 +77,9 @@ impl Plugin for ScenePlugin {
         );
         app.add_systems(
             Update,
-            (start_targeting, apply_deferred, check_targets)
+            (start_targeting, /*apply_deferred,*/ check_targets)
                 .chain()
-                .run_if(resource_exists_and_changed::<Targeting>()),
+                .run_if(resource_exists_and_changed::<Targeting>),
         );
     }
 }
@@ -98,23 +97,20 @@ pub struct UiManager<'w, 's> {
     windows: Query<'w, 's, &'static Window>,
 }
 impl<'w, 's> UiManager<'w, 's> {
-    pub fn spawn_text<'this>(
-        &'this mut self,
-        custom_text: CustomText,
-    ) -> EntityCommands<'w, 's, 'this> {
-        let CustomText { value, color, font_size, alignment } = custom_text;
+    pub fn spawn_text(&mut self, custom_text: CustomText) -> EntityCommands {
+        let CustomText { value, color, font_size, justify } = custom_text;
         let mut style = Style::default();
         let mut text = Text {
             sections: vec![TextSection {
                 value,
                 style: TextStyle { font: self.font.0.clone(), font_size, color },
             }],
-            alignment,
+            justify,
             ..default()
         };
         let size = DynamicFontSize(font_size);
         scale_text(&mut text, &mut style, &size, self.windows.single().height());
 
-        self.commands.spawn((TextBundle { style, text, ..default() }, size))
+        self.commands.spawn((TextBundle { style, text, ..default() }, size, Pickable::IGNORE))
     }
 }

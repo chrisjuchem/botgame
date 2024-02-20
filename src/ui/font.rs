@@ -51,7 +51,7 @@ pub struct CustomText {
     pub value: String,
     pub color: Color,
     pub font_size: f32,
-    pub alignment: TextAlignment,
+    pub justify: JustifyText,
 }
 impl Default for CustomText {
     fn default() -> Self {
@@ -59,19 +59,14 @@ impl Default for CustomText {
             value: String::new(),
             color: Color::BLACK,
             font_size: 36.,
-            alignment: TextAlignment::Left,
+            justify: JustifyText::Left,
         }
     }
 }
 
 impl CustomText {
     pub fn new(text: impl Into<String>) -> Self {
-        Self {
-            value: text.into(),
-            color: Color::BLACK,
-            font_size: 36.,
-            alignment: TextAlignment::Left,
-        }
+        Self { value: text.into(), color: Color::BLACK, font_size: 36., justify: JustifyText::Left }
     }
 
     pub fn text(mut self, text: impl Into<String>) -> Self {
@@ -90,7 +85,7 @@ impl CustomText {
     }
 
     pub fn centered(mut self) -> Self {
-        self.alignment = TextAlignment::Center;
+        self.justify = JustifyText::Center;
         self
     }
 }
