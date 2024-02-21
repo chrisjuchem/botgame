@@ -1,5 +1,7 @@
 pub mod deck;
+pub mod generator;
 pub mod mesh;
+pub mod price;
 pub mod text;
 
 use std::fmt::{Debug, Formatter};

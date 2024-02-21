@@ -29,8 +29,8 @@ pub fn transition_to_match(e: EventReader<StartMatchEvent>, mut s: ResMut<NextSt
 #[derive(Component)]
 pub struct MatchScenery;
 
-const BATTLEFIELD_H: f32 = 20.;
-const BATTLEFIELD_W: f32 = 30.;
+const BATTLEFIELD_HALF_H: f32 = 10.;
+const BATTLEFIELD_HALF_W: f32 = 15.;
 
 pub fn spawn_match(
     mut commands: Commands,
@@ -46,18 +46,19 @@ pub fn spawn_match(
                 perceptual_roughness: 0.9,
                 ..Color::rgb(0.3, 0.5, 0.3).into()
             }),
-            transform: Transform::from_scale(Vec3::new(BATTLEFIELD_W, BATTLEFIELD_H, 1.)),
+            transform: Transform::from_scale(Vec3::new(BATTLEFIELD_HALF_W, BATTLEFIELD_HALF_H, 1.)),
             ..default()
         },
         MatchScenery,
+        Name::new("table_mesh"),
     ));
 
     // light
     commands.spawn((
         DirectionalLightBundle {
             directional_light: DirectionalLight {
-                illuminance: 2500.0,
-                // color: Default::default(),
+                illuminance: 800.0,
+                color: Color::rgb(0.96, 0.90, 0.85), // slightly warmer light
                 shadows_enabled: true,
                 // shadow_projection: Default::default(),
                 // shadow_depth_bias: 0.0,
@@ -95,11 +96,11 @@ pub fn update_card_transforms(
         let row = if *owner == us.0 { coord.x as f32 } else { GRID_H - coord.x as f32 - 1. };
         let col = coord.y as f32;
 
-        let scale_w = BATTLEFIELD_W / GRID_W as f32;
-        let scale_h = BATTLEFIELD_H / GRID_H as f32;
+        let scale_w = BATTLEFIELD_HALF_W * 2. / GRID_W as f32;
+        let scale_h = BATTLEFIELD_HALF_H * 2. / GRID_H as f32;
 
-        t.translation.x = ((col + 0.5) * scale_w) - (BATTLEFIELD_W / 2.);
-        t.translation.y = ((row + 0.5) * scale_h) - (BATTLEFIELD_H / 2.);
+        t.translation.x = ((col + 0.5) * scale_w) - (BATTLEFIELD_HALF_W);
+        t.translation.y = ((row + 0.5) * scale_h) - (BATTLEFIELD_HALF_H);
     }
 }
 

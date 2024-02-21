@@ -1,41 +1,10 @@
 use std::vec;
 
 use botgame::cards::{
-    deck::Deck, summon_cost, Ability, AbilityCost, Card, Cost, Effect, Effect::MultipleEffects,
-    EffectType, ImplicitTargetRules, PassiveEffect, TargetAmount, TargetFilter, TargetRules,
+    deck::Deck, generator::random_card, summon_cost, Ability, AbilityCost, Card, Cost, Effect,
+    Effect::MultipleEffects, EffectType, ImplicitTargetRules, PassiveEffect, TargetAmount,
+    TargetFilter, TargetRules,
 };
-
-fn make_deck(cards: Vec<Card>) -> Card {
-    Card {
-        name: "Command Center".to_string(),
-        summon_cost: Cost::FREE,
-        hp: 50,
-        abilities: cards
-            .into_iter()
-            .map(|card| Ability::Activated {
-                effect: Effect::SummonCard { card },
-                cost: AbilityCost::Derived { func: &summon_cost },
-                target_rules: TargetRules {
-                    amount: TargetAmount::N { n: 1 },
-                    filter: TargetFilter::And(vec![
-                        TargetFilter::Friendly,
-                        TargetFilter::Unoccupied,
-                    ]),
-                },
-            })
-            .chain(std::iter::once(Ability::Activated {
-                effect: MultipleEffects { effects: vec![] },
-                cost: AbilityCost::Static { cost: Cost::FREE },
-                target_rules: TargetRules {
-                    amount: TargetAmount::N { n: 0 },
-                    filter: TargetFilter::Any,
-                },
-            }))
-            .collect(),
-        max_energy: 10,
-        starting_energy: 3,
-    }
-}
 
 fn aoe_deck() -> Card {
     let deck = vec![
@@ -252,5 +221,5 @@ pub fn gigablaster_deck() -> Card {
 }
 
 fn main() {
-    println!("{}", serde_json::to_string_pretty(&Deck { deck: gigablaster_deck() }).unwrap())
+    println!("{}", serde_json::to_string_pretty(&Deck { deck: random_deck() }).unwrap())
 }

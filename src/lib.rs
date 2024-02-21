@@ -1,4 +1,5 @@
-#![feature(debug_closure_helpers)]
+#![feature(debug_closure_helpers)] // Debug impls
+#![feature(exclusive_range_pattern)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
@@ -17,27 +18,6 @@ use crate::{
     network::{ClientPlugin, NwDebugPlugin, ServerPlugin},
     ui::ScenePlugin,
 };
-
-// pub fn run_game() {
-//     println!("{:#?}", cards::deck());
-//
-//     let mut app = App::new();
-//     app.add_plugins(DefaultPlugins.set(WindowPlugin {
-//         primary_window: Some(Window {
-//             // provide the ID selector string here
-//             canvas: Some("#game-canvas".into()),
-//             fit_canvas_to_parent: true,
-//             // ... any other window properties ...
-//             ..default()
-//         }),
-//         ..default()
-//     }));
-//
-//     app.add_plugins(match_sim::MatchSimPlugin);
-//
-//     app.add_systems(Startup, setup);
-//     app.run();
-// }
 
 fn log_plugin() -> LogPlugin {
     let mut log_config = LogPlugin::default();
@@ -62,9 +42,6 @@ pub fn run_client() {
         bevy_inspector_egui::quick::WorldInspectorPlugin::new()
             .run_if(input_toggle_active(false, KeyCode::KeyI)),
     );
-    // app.add_systems(Startup, |mut c: ResMut<RenetClient>| {
-    //     c.send(JoinMatchmakingQueueMessage { player_name: "p1".to_string(), deck: cards::deck() })
-    // });
     app.add_systems(Startup, |mut commands: Commands| {
         commands.spawn(Camera3dBundle::default());
     });

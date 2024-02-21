@@ -10,7 +10,9 @@ use crate::{
     ui::{
         button::{ClickHandler, GameButton},
         font::CustomText,
-        game_scene::{create_ability_overlay, BATTLEFIELD_H, BATTLEFIELD_W, GRID_H, GRID_W},
+        game_scene::{
+            create_ability_overlay, BATTLEFIELD_HALF_H, BATTLEFIELD_HALF_W, GRID_H, GRID_W,
+        },
         UiManager,
     },
 };
@@ -131,9 +133,9 @@ pub fn start_targeting(
                             perceptual_roughness: 0.9,
                             ..Color::rgba(0.8, 0., 0., 0.1).into()
                         }),
-                        transform: Transform::from_scale(Vec3::new(
-                            BATTLEFIELD_W / GRID_W * 0.8,
-                            BATTLEFIELD_H / GRID_H * 0.8,
+                        transform: Transform::from_xyz(0., 0., 0.01).with_scale(Vec3::new(
+                            BATTLEFIELD_HALF_W / GRID_W * 0.8,
+                            BATTLEFIELD_HALF_H / GRID_H * 0.8,
                             1.,
                         )),
                         ..default()

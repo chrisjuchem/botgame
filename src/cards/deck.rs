@@ -1,7 +1,10 @@
 use bevy::{prelude::*, utils::HashMap};
 use serde::{Deserialize, Serialize};
 
-use crate::cards::Card;
+use crate::cards::{
+    generator::random_card, summon_cost, Ability, AbilityCost, Card, Cost, Effect, TargetAmount,
+    TargetFilter, TargetRules,
+};
 
 // #[derive(Asset, TypePath)]
 #[derive(Serialize, Deserialize)]
@@ -44,5 +47,45 @@ pub fn load_decks(mut decks: ResMut<Decks>) {
         let Ok(fd) = std::fs::File::open(file.path()) else { continue };
         let Ok(deck) = serde_json::from_reader(fd) else { continue };
         decks.0.insert(name, deck);
+    }
+
+    decks.0.insert("Random".to_string(), random_deck());
+}
+
+fn random_deck() -> Deck {
+    make_deck((0..5).map(|_| random_card()).collect())
+}
+
+fn make_deck(cards: Vec<Card>) -> Deck {
+    Deck {
+        deck: Card {
+            name: "Command Center".to_string(),
+            summon_cost: Cost::FREE,
+            hp: 50,
+            abilities: cards
+                .into_iter()
+                .map(|card| Ability::Activated {
+                    effect: Effect::SummonCard { card },
+                    cost: AbilityCost::Derived { func: &summon_cost },
+                    target_rules: TargetRules {
+                        amount: TargetAmount::N { n: 1 },
+                        filter: TargetFilter::And(vec![
+                            TargetFilter::Friendly,
+                            TargetFilter::Unoccupied,
+                        ]),
+                    },
+                })
+                .chain(std::iter::once(Ability::Activated {
+                    effect: Effect::MultipleEffects { effects: vec![] },
+                    cost: AbilityCost::Static { cost: Cost::FREE },
+                    target_rules: TargetRules {
+                        amount: TargetAmount::N { n: 0 },
+                        filter: TargetFilter::Any,
+                    },
+                }))
+                .collect(),
+            max_energy: 10,
+            starting_energy: 3,
+        },
     }
 }
