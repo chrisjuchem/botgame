@@ -11,7 +11,7 @@ while [ -n "$1" ] ; do
       dev=1
       ;;
     "--trace")
-      cargo_flags="${cargo_flags} --features bevy/trace_chrome"
+      cargo_flags="${cargo_flags} --features trace"
       ;;
     "--server")
       exe="server"
