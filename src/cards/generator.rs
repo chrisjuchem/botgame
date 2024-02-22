@@ -1,7 +1,8 @@
 use rand::{prelude::SliceRandom, thread_rng, Rng};
 
 use crate::cards::{
-    price::price_effect, Ability, Card, Cost, Effect, EffectType, PassiveEffect, TargetAmount,
+    price::{price_card, price_effect},
+    Ability, AbilityCost, Card, Cost, Effect, EffectType, PassiveEffect, TargetAmount,
     TargetFilter, TargetRules,
 };
 
@@ -52,13 +53,17 @@ pub fn random_card() -> Card {
         })
         .max()
         .unwrap();
+    let starting_energy = max_energy.min(rnd_log_n(3, 3));
+    let hp = rnd_log_n(8, 12);
 
     Card {
         name: random_name(),
-        summon_cost: Cost { energy: 3 }, //todo todo todo todo
-        hp: rnd_log_n(8, 12),
+        summon_cost: Cost {
+            energy: price_card(&abilities, hp, starting_energy, max_energy) as u32,
+        },
+        hp,
         abilities,
-        starting_energy: max_energy.min(rnd_log_n(3, 3)),
+        starting_energy,
         max_energy,
     }
 }
@@ -87,7 +92,9 @@ fn random_active_ability() -> Ability {
         },
     };
 
-    let cost = price_effect(&effect, &target_rules);
+    let score = price_effect(&effect, &target_rules);
+    let jitter = rnd(3) as f32 - 1.;
+    let cost = AbilityCost::Static { cost: Cost { energy: (score + jitter) as u32 } };
     Ability::Activated { effect, cost, target_rules }
 }
 
@@ -113,7 +120,7 @@ fn random_name() -> String {
     let noun = NOUNS.choose(&mut rng).unwrap();
 
     if rng.gen_ratio(1, 20) {
-        let n = rnd_log(10);
+        let n = rnd_log(10) * 1000;
         format!("{adj} {noun} {n}")
     } else {
         format!("{adj} {noun}")
@@ -208,7 +215,7 @@ const ADJECTIVES: [&'static str; 184] = [
     "Long",
     "Magnificent",
     "Muscular",
-    "Plain",
+    "Plain ol'",
     "Plump",
     "Quaint",
     "Scruffy",
@@ -259,7 +266,7 @@ const ADJECTIVES: [&'static str; 184] = [
     "Shrilling",
     "Squeaking",
     "Thundering",
-    "Tinkling",
+    "Twinkling",
     "Wailing",
     "Whining",
     "Whispering",

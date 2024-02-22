@@ -52,11 +52,11 @@ pub fn load_decks(mut decks: ResMut<Decks>) {
     decks.0.insert("Random".to_string(), random_deck());
 }
 
-fn random_deck() -> Deck {
+pub fn random_deck() -> Deck {
     make_deck((0..5).map(|_| random_card()).collect())
 }
 
-fn make_deck(cards: Vec<Card>) -> Deck {
+pub fn make_deck(cards: Vec<Card>) -> Deck {
     Deck {
         deck: Card {
             name: "Command Center".to_string(),
