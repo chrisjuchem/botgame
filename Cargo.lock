@@ -330,8 +330,9 @@ dependencies = [
 
 [[package]]
 name = "bevy-inspector-egui"
-version = "0.23.0"
-source = "git+https://github.com/Aztro-dev/bevy-inspector-egui.git#93d1c4c667a1ea12f96e20043dcbfa2d5008f8f3"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9cf0713a3456f6533d274a4ff6a124fc7ec5de89b9dac25c7eca73c9799badcc"
 dependencies = [
  "bevy-inspector-egui-derive",
  "bevy_app",
@@ -359,7 +360,8 @@ dependencies = [
 [[package]]
 name = "bevy-inspector-egui-derive"
 version = "0.23.0"
-source = "git+https://github.com/Aztro-dev/bevy-inspector-egui.git#93d1c4c667a1ea12f96e20043dcbfa2d5008f8f3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3c488161a04a123e10273e16d4533945943fcfcf345f066242790e8977aee2d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -853,9 +855,11 @@ dependencies = [
  "bevy_app",
  "bevy_core",
  "bevy_ecs",
+ "bevy_egui",
  "bevy_eventlistener",
  "bevy_math",
  "bevy_picking_core",
+ "bevy_picking_egui",
  "bevy_picking_highlight",
  "bevy_picking_input",
  "bevy_picking_raycast",
@@ -927,6 +931,20 @@ dependencies = [
  "bevy_render",
  "bevy_utils",
  "bevy_window",
+]
+
+[[package]]
+name = "bevy_picking_egui"
+version = "0.17.0"
+source = "git+https://github.com/StrikeForceZero/bevy_mod_picking.git?branch=bevy-0.13#62d7519d9da5cff623059dfefcbfe7540dbbecb3"
+dependencies = [
+ "bevy_app",
+ "bevy_ecs",
+ "bevy_egui",
+ "bevy_picking_core",
+ "bevy_picking_selection",
+ "bevy_reflect",
+ "bevy_render",
 ]
 
 [[package]]
@@ -1103,7 +1121,8 @@ dependencies = [
 [[package]]
 name = "bevy_renet"
 version = "0.0.11"
-source = "git+https://github.com/dgsantana/renet.git?branch=bevy_0_13#4fcc8e15767c41088696f1b9a9f00fd0a219928b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0fc70a7997a4dd9398fee95578465a667d096658f9829969f8a28eaa75d5a05"
 dependencies = [
  "bevy",
  "renet",
@@ -3532,7 +3551,8 @@ checksum = "216080ab382b992234dda86873c18d4c48358f5cfcb70fd693d7f6f2131b628b"
 [[package]]
 name = "renet"
 version = "0.0.15"
-source = "git+https://github.com/dgsantana/renet.git?branch=bevy_0_13#4fcc8e15767c41088696f1b9a9f00fd0a219928b"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "93286238bc6ca687203a4ce476360fe2690255e77305a204403c8628e49ab69a"
 dependencies = [
  "bevy_ecs",
  "bytes",
@@ -3543,8 +3563,9 @@ dependencies = [
 
 [[package]]
 name = "renetcode"
-version = "0.0.10"
-source = "git+https://github.com/dgsantana/renet.git?branch=bevy_0_13#4fcc8e15767c41088696f1b9a9f00fd0a219928b"
+version = "0.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a164cf662b1d663cc8faaa199154b0134d8202beaed0b57bbf8ed7e428232a7"
 dependencies = [
  "chacha20poly1305",
  "log",

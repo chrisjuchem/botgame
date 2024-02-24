@@ -1,15 +1,17 @@
 use std::fmt::{Display, Formatter};
 
-use crate::cards::{
-    Ability, Card, Effect, EffectType, ImplicitTargetRules, PassiveEffect, TargetAmount,
-    TargetFilter, TargetRules,
+use crate::{
+    cards::{
+        Ability, Card, Effect, EffectType, ImplicitTargetRules, PassiveEffect, TargetAmount,
+        TargetFilter, TargetRules,
+    },
+    utils::StrJoin,
 };
 
 impl Card {
     pub fn full_text(&self) -> String {
         let Card { name, summon_cost, hp, abilities, starting_energy, max_energy } = self;
-        let fmtd_abilities =
-            abilities.iter().map(Ability::full_text).collect::<Vec<_>>().join("\n");
+        let fmtd_abilities = abilities.iter().map(Ability::full_text).join("\n");
 
         format!(
             "\
@@ -43,17 +45,15 @@ impl Effect {
             Effect::Attack { damage, effect_type } => {
                 format!("Deal {damage} {effect_type} damage to {target_str}.")
             },
-            Effect::GrantAbility { ability } => {
-                format!("Give {target_str} \"{}\".", ability.full_text())
-            },
+            Effect::GrantAbilities { abilities } => std::iter::once(format!("Give {target_str}:"))
+                .chain(abilities.iter().map(Ability::full_text))
+                .join("\n"),
             Effect::SummonCard { card } => {
                 format!("Summon the following unit to {target_str}:\n\n{}\n", card.full_text())
             },
-            Effect::MultipleEffects { effects } => effects
-                .iter()
-                .map(|e| e.full_text(target_str.clone()))
-                .collect::<Vec<_>>()
-                .join(" "),
+            Effect::MultipleEffects { effects } => {
+                effects.iter().map(|e| e.full_text(target_str.clone())).join(" ")
+            },
             Effect::ChangeHp { amount } => {
                 let (change, n) = if *amount > 0 { ("gains", *amount) } else { ("loses", -amount) };
                 format!("{target_str} {change} {n} health.",)
@@ -129,12 +129,8 @@ impl TargetFilter {
             TargetFilter::Enemy => "enemy".to_string(),
             TargetFilter::Unoccupied => "open location(s)".to_string(),
             TargetFilter::Occupied => "unit(s)".to_string(),
-            TargetFilter::And(conds) => {
-                conds.iter().map(|f| f.text()).collect::<Vec<_>>().join(" ")
-            },
-            TargetFilter::Or(conds) => {
-                conds.iter().map(|f| f.text()).collect::<Vec<_>>().join(" or ")
-            },
+            TargetFilter::And(conds) => conds.iter().map(|f| f.text()).join(" "),
+            TargetFilter::Or(conds) => conds.iter().map(|f| f.text()).join(" or "),
         }
     }
 }

@@ -1,7 +1,7 @@
 use std::fmt::Formatter;
 
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
-pub(crate) struct Uuid(bevy::utils::Uuid);
+pub struct Uuid(bevy::utils::Uuid);
 impl Uuid {
     pub fn new() -> Self {
         Self(bevy::utils::Uuid::new_v4())
@@ -62,5 +62,29 @@ where
             (None, _) => panic!("Expected 1 item in iterator, found 0."),
             (Some(_), Some(_)) => panic!("Expected 1 item in iterator, found multiple."),
         }
+    }
+}
+
+pub trait StrJoin {
+    fn join(self, sep: impl AsRef<str>) -> String;
+}
+impl<T, I> StrJoin for T
+where
+    T: Iterator<Item = I>,
+    I: AsRef<str>,
+{
+    fn join(mut self, sep: impl AsRef<str>) -> String {
+        let mut joined = String::new();
+        if let Some(first) = self.next() {
+            joined.push_str(first.as_ref());
+        } else {
+            return joined;
+        }
+
+        for part in self {
+            joined.push_str(sep.as_ref());
+            joined.push_str(part.as_ref());
+        }
+        joined
     }
 }

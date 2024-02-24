@@ -4,21 +4,18 @@ pub mod mesh;
 pub mod price;
 pub mod text;
 
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 
-use bevy::math::UVec2;
+use bevy::{math::UVec2, reflect::Reflect};
 use bevy_mod_index::index::Index;
-use serde::{
-    de::{Error, Visitor},
-    Deserialize, Deserializer, Serialize, Serializer,
-};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     match_sim::{Cards, GridLocation, PlayerId},
     ui::game_scene::{GRID_H, GRID_W},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub struct Card {
     pub name: String,
     pub summon_cost: Cost,
@@ -28,7 +25,8 @@ pub struct Card {
     pub max_energy: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[reflect(no_field_bounds)]
 pub enum Ability {
     Activated { effect: Effect, cost: AbilityCost, target_rules: TargetRules },
     Passive { passive_effect: PassiveEffect, target_filter: TargetFilter },
@@ -42,7 +40,7 @@ impl Ability {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
 pub struct Cost {
     pub energy: u32,
 }
@@ -50,71 +48,45 @@ impl Cost {
     pub const FREE: Cost = Cost { energy: 0 };
 }
 
-pub trait DerivedCostFunc: Sync + Fn(&Effect) -> Cost {
-    fn fn_name(&self) -> &str {
-        std::any::type_name::<Self>()
-    }
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
+pub enum Attribute {
+    Hp,
+    SummonCost,
 }
-impl dyn DerivedCostFunc {
-    fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
-        ser.serialize_str(self.fn_name())
-    }
-    fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<&'static Self, D::Error> {
-        struct DerivedCostFuncVisitor;
-        impl Visitor<'_> for DerivedCostFuncVisitor {
-            type Value = &'static dyn DerivedCostFunc;
-
-            fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-                formatter.write_str("the name of a function to use to derive costs")
-            }
-
-            fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-            where
-                E: Error,
-            {
-                Ok(&summon_cost) // TODO
-            }
+impl Attribute {
+    pub fn get(&self, card: &Card) -> u32 {
+        match self {
+            Attribute::Hp => card.hp,
+            Attribute::SummonCost => card.summon_cost.energy,
         }
-
-        de.deserialize_str(DerivedCostFuncVisitor)
     }
 }
-impl<T> DerivedCostFunc for T where T: Sync + Fn(&Effect) -> Cost {}
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Reflect, Debug)]
 pub enum AbilityCost {
-    Static {
-        cost: Cost,
-    },
-    Derived {
-        #[serde(with = "DerivedCostFunc")]
-        func: &'static dyn DerivedCostFunc,
-    },
+    Static { cost: Cost },
+    Derived { attribute: Attribute },
 }
 impl AbilityCost {
     pub fn get(&self, effect: &Effect) -> Cost {
         match self {
             AbilityCost::Static { cost } => *cost,
-            AbilityCost::Derived { func } => func(effect),
-        }
-    }
-}
-impl Debug for AbilityCost {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            AbilityCost::Static { cost } => f.debug_struct("Static").field("cost", cost).finish(),
-            AbilityCost::Derived { func } => f
-                .debug_struct("Derived")
-                .field_with("func", |f| f.write_str((*func).fn_name()))
-                .finish(),
+            AbilityCost::Derived { attribute } => {
+                let Effect::SummonCard { card } = effect else {
+                    panic!("DerivedCost only valid for SummonCard.")
+                };
+                Cost { energy: attribute.get(card) }
+            },
         }
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+// #[reflect(where Ability: FromReflect)]
+#[reflect(no_field_bounds)]
 pub enum Effect {
     Attack { damage: u32, effect_type: EffectType },
-    GrantAbility { ability: Box<Ability> }, // Box to avoid infinite type
+    GrantAbilities { abilities: Vec<Ability> }, // Vec to avoid infinite type
     SummonCard { card: Card },
     // SharableEnergy {
     //     factor: f32,
@@ -129,7 +101,7 @@ pub enum Effect {
     DestroyCard,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub enum PassiveEffect {
     DamageResistance { effect_type: EffectType, factor: f32 },
     WhenHit { effect: Effect, target_rules: ImplicitTargetRules },
@@ -138,7 +110,7 @@ pub enum PassiveEffect {
     // ModifyAbilityCost ??
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq, Reflect)]
 pub enum EffectType {
     Physical,
     Explosion,
@@ -146,14 +118,14 @@ pub enum EffectType {
     Electrical,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub enum ImplicitTargetRules {
     ThisUnit,
     ThatUnit,
     // AttackingUnit,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub struct TargetRules {
     pub amount: TargetAmount,
     pub filter: TargetFilter,
@@ -201,7 +173,7 @@ impl TargetRules {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub enum TargetAmount {
     All,
     N { n: usize },
@@ -217,7 +189,8 @@ impl TargetAmount {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[reflect(no_field_bounds)]
 pub enum TargetFilter {
     Any,
     ThisUnit,
@@ -252,11 +225,4 @@ impl TargetFilter {
             },
         }
     }
-}
-
-pub fn summon_cost(effect: &Effect) -> Cost {
-    let Effect::SummonCard { card } = effect else {
-        panic!("Can't get summon cost of {effect:?}");
-    };
-    card.summon_cost
 }

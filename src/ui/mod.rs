@@ -1,4 +1,5 @@
 pub mod button;
+pub mod deckbuilding;
 pub mod font;
 pub mod game_scene;
 pub mod main_menu;
@@ -19,6 +20,7 @@ use crate::{
     match_sim::StartMatchEvent,
     ui::{
         button::update_buttons,
+        deckbuilding::DeckbuildingPlugin,
         font::{scale_text, CustomText, DefaultFont, DynamicFontSize, FontPlugin},
         game_scene::{
             scroll, setup_new_cards, spawn_match,
@@ -42,6 +44,7 @@ impl Plugin for ScenePlugin {
         app.add_plugins(FramepacePlugin);
 
         app.add_plugins(FontPlugin);
+        app.add_plugins(DeckbuildingPlugin);
 
         app.insert_state(SceneState::MainMenu);
 

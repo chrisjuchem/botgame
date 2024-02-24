@@ -2,12 +2,12 @@ use bevy::{prelude::*, utils::HashMap};
 use serde::{Deserialize, Serialize};
 
 use crate::cards::{
-    generator::random_card, summon_cost, Ability, AbilityCost, Card, Cost, Effect, TargetAmount,
+    generator::random_card, Ability, AbilityCost, Attribute, Card, Cost, Effect, TargetAmount,
     TargetFilter, TargetRules,
 };
 
 // #[derive(Asset, TypePath)]
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Reflect)]
 pub struct Deck {
     pub deck: Card,
 }
@@ -66,7 +66,7 @@ pub fn make_deck(cards: Vec<Card>) -> Deck {
                 .into_iter()
                 .map(|card| Ability::Activated {
                     effect: Effect::SummonCard { card },
-                    cost: AbilityCost::Derived { func: &summon_cost },
+                    cost: AbilityCost::Derived { attribute: Attribute::SummonCost },
                     target_rules: TargetRules {
                         amount: TargetAmount::N { n: 1 },
                         filter: TargetFilter::And(vec![

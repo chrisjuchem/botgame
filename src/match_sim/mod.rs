@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use bevy::{
     ecs::{event::ManualEventReader, query::QueryData, system::BoxedSystem},
     prelude::*,
@@ -235,14 +233,14 @@ fn common_effects(
                     commands.spawn_card(card.clone(), *match_id, *t)
                 }
             },
-            Effect::GrantAbility { ability } => {
+            Effect::GrantAbilities { abilities } => {
                 for t in targets {
                     cards
                         .get_mut(loc_idx.single(t))
                         .unwrap()
                         .abilities
                         .0
-                        .push(ability.deref().clone());
+                        .extend_from_slice(abilities);
                 }
             },
             Effect::ChangeHp { amount } => {
@@ -366,7 +364,7 @@ fn server_effects(
                 }
             },
             Effect::SummonCard { .. }
-            | Effect::GrantAbility { .. }
+            | Effect::GrantAbilities { .. }
             | Effect::ChangeHp { .. }
             | Effect::ChangeEnergy { .. } => {
                 // Handled by common_effects

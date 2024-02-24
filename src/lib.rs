@@ -1,4 +1,4 @@
-#![feature(debug_closure_helpers)] // Debug impls
+// #![feature(trivial_bounds)]
 #![feature(exclusive_range_pattern)]
 #![allow(dead_code)]
 #![allow(unused_variables)]
