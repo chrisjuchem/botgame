@@ -13,10 +13,6 @@ impl bevy::app::Plugin for NwDebugPlugin {
         use bevy::prelude::*;
 
         use crate::match_sim::MatchId;
-        // use crate::{
-        //     cards_v1::*,
-        //     network::messages::{JoinMatchmakingQueue, NetworkMessage},
-        // };
 
         app.add_systems(
             Update,

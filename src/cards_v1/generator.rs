@@ -113,7 +113,7 @@ fn random_passive_ability() -> Ability {
     Ability::Passive { passive_effect, target_filter }
 }
 
-fn random_name() -> String {
+pub fn random_name() -> String {
     let mut rng = thread_rng();
 
     let adj = ADJECTIVES.choose(&mut rng).unwrap();
