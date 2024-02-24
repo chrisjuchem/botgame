@@ -13,7 +13,7 @@ use bevy_framepace::FramepacePlugin;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
-    cards::{
+    cards_v1::{
         deck::{load_decks, Decks},
         mesh::spawn_card_mesh,
     },

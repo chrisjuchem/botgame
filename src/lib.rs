@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-pub mod cards;
+pub mod cards_v1;
 pub mod logging;
 pub mod macros;
 pub mod match_sim;

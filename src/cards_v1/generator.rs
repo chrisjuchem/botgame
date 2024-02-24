@@ -1,6 +1,6 @@
 use rand::{prelude::SliceRandom, thread_rng, Rng};
 
-use crate::cards::{
+use crate::cards_v1::{
     price::{price_card, price_effect},
     Ability, AbilityCost, Card, Cost, Effect, EffectType, PassiveEffect, TargetAmount,
     TargetFilter, TargetRules,

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::cards::deck::{random_deck, Deck};
+use crate::cards_v1::deck::{random_deck, Deck};
 
 #[derive(Resource, Reflect)]
 pub struct CustomDeck(pub Deck);

@@ -1,7 +1,7 @@
 use bevy::{prelude::*, utils::HashMap};
 use serde::{Deserialize, Serialize};
 
-use crate::cards::{
+use crate::cards_v1::{
     generator::random_card, Ability, AbilityCost, Attribute, Card, Cost, Effect, TargetAmount,
     TargetFilter, TargetRules,
 };

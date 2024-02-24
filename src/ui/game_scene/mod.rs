@@ -8,7 +8,7 @@ use bevy_mod_index::prelude::Index;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
-    cards::Ability,
+    cards_v1::Ability,
     match_sim::{
         BaseCard, Cards, CurrentTurn, Energy, GridLocation, Health, PlayerId, StartMatchEvent, Us,
     },

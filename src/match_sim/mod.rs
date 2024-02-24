@@ -7,7 +7,7 @@ use extension_trait::extension_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards::{mesh::NeedsMesh, Ability, Card, Effect, ImplicitTargetRules, PassiveEffect},
+    cards_v1::{mesh::NeedsMesh, Ability, Card, Effect, ImplicitTargetRules, PassiveEffect},
     utils::Uuid,
 };
 

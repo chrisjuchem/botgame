@@ -1,6 +1,6 @@
 use std::vec;
 
-use botgame::cards::{
+use botgame::cards_v1::{
     deck::{make_deck, random_deck, Deck},
     generator::random_card,
     Ability, AbilityCost, Card, Cost, Effect,

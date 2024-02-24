@@ -4,7 +4,7 @@ use bevy_mod_picking::prelude::*;
 use bevy_renet::renet::RenetClient;
 
 use crate::{
-    cards::Ability,
+    cards_v1::Ability,
     match_sim::{BaseCard, Cards, GridLocation, MatchId, PlayerId},
     network::{messages::ActivateAbilityMessage, ClientExt},
     ui::{

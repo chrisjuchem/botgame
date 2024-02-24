@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 
 use crate::{
-    cards::{
+    cards_v1::{
         Ability, Card, Effect, EffectType, ImplicitTargetRules, PassiveEffect, TargetAmount,
         TargetFilter, TargetRules,
     },

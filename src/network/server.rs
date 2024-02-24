@@ -20,7 +20,7 @@ use bevy_renet::{
 use extension_trait::extension_trait;
 
 use crate::{
-    cards::{Ability, Card, Effect},
+    cards_v1::{Ability, Card, Effect},
     match_sim::{
         Cards, CurrentTurn, EffectEvent, GridLocation, MatchId, NewTurnEvent, OwnerIndex, PlayerId,
         StartMatchEvent,

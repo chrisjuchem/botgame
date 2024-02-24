@@ -2,7 +2,7 @@ use bevy::prelude::UVec2;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards::{Card, Effect},
+    cards_v1::{Card, Effect},
     make_enum,
     match_sim::{GridLocation, MatchId, PlayerId},
 };

@@ -3,7 +3,7 @@ use bevy_mod_picking::prelude::*;
 use bevy_renet::renet::RenetClient;
 
 use crate::{
-    cards::deck::Decks,
+    cards_v1::deck::Decks,
     network::{messages::JoinMatchmakingQueueMessage, ClientConfig, ClientExt},
     ui::{
         button::{ClickHandler, GameButton},

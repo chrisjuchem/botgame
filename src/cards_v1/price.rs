@@ -1,4 +1,4 @@
-use crate::cards::{Ability, Effect, PassiveEffect, TargetAmount, TargetFilter, TargetRules};
+use crate::cards_v1::{Ability, Effect, PassiveEffect, TargetAmount, TargetFilter, TargetRules};
 
 pub fn price_effect(effect: &Effect, target_rules: &TargetRules) -> f32 {
     let (mut score, positive_effect) = match effect {
