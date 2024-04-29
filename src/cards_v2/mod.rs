@@ -1,14 +1,16 @@
-use std::os::linux::raw::stat;
+pub mod deck;
+pub mod mesh;
 
-mod deck;
+use bevy::reflect::Reflect;
+use serde::{Deserialize, Serialize};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub struct Cost {
-    energy: u32,
-    scrap: u32,
+    pub energy: u32,
+    pub scrap: u32,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub enum StatKind {
     Hp,
     CombatStrength,
@@ -16,19 +18,19 @@ pub enum StatKind {
     Armor,
 }
 
-#[derive(Clone)]
-pub struct CardV2 {
-    name: String,
-    cost: Cost,
-    chassis: Chassis,
-    hp: u32,
-    combat_strength: Option<u32>,
-    mining_speed: Option<u32>,
-    support_ability: Option<SupportAbility>,
-    ability: Ability,
-    attribute: Attribute,
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
+pub struct Card {
+    pub name: String,
+    pub cost: Cost,
+    pub chassis: Chassis,
+    pub hp: u32,
+    pub combat_strength: Option<u32>,
+    pub mining_speed: Option<u32>,
+    pub support_ability: Option<SupportAbility>,
+    pub ability: Ability,
+    pub attribute: Attribute,
 }
-impl CardV2 {
+impl Card {
     pub fn get_stat(&self, stat: StatKind) -> u32 {
         match stat {
             StatKind::Hp => self.hp,
@@ -63,7 +65,10 @@ impl CardV2 {
         let n = amount.for_target(&self);
         match self.stat_mut(stat) {
             None => false,
-            Some(stat_ref) => *stat_ref.saturating_add(n),
+            Some(stat_ref) => {
+                *stat_ref = stat_ref.saturating_add(n);
+                true
+            },
         }
     }
 
@@ -71,19 +76,22 @@ impl CardV2 {
         let n = amount.for_target(&self);
         match self.stat_mut(stat) {
             None => false,
-            Some(stat_ref) => *stat_ref.saturating_sub(n),
+            Some(stat_ref) => {
+                *stat_ref = stat_ref.saturating_sub(n);
+                true
+            },
         }
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub enum Chassis {
     Combat,
     Mining,
     Support,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub enum TriggerType {
     ManualActivation { cost: Cost },
     Etb,
@@ -94,19 +102,19 @@ pub enum TriggerType {
     Destroyed,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub struct Trigger {
-    trigger_type: TriggerType,
-    filter: CardFilter,
+    pub trigger_type: TriggerType,
+    pub filter: CardFilter,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub struct StatRange {
-    min: Option<u32>,
-    max: Option<u32>,
+    pub min: Option<u32>,
+    pub max: Option<u32>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub enum CardFilter {
     This,
     Friendly,
@@ -115,14 +123,14 @@ pub enum CardFilter {
     Stat { stat: StatKind, range: StatRange },
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub struct Ability {
-    trigger: Trigger,
+    pub trigger: Trigger,
     // targeting
-    effect: Effect,
+    pub effect: Effect,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub enum Attribute {
     None,
     Ranged,
@@ -135,18 +143,20 @@ pub enum Attribute {
 
 // == effects ==
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub struct Effect {
-    kind: EffectKind,
-    strength: EffectStrength,
+    pub kind: EffectKind,
+    pub strength: EffectStrength,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub enum EffectStrength {
     Constant(u32),
     SourceStat(StatKind),
     TargetStat(StatKind),
 }
 impl EffectStrength {
-    pub fn for_target(&self, target: &CardV2) -> u32 {
+    pub fn for_target(&self, target: &Card) -> u32 {
         match self {
             EffectStrength::Constant(n) => *n,
             EffectStrength::SourceStat(stat) => panic!("No source available for SourceStat"),
@@ -155,6 +165,7 @@ impl EffectStrength {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub enum EffectKind {
     DrawCards,
     RaiseStat(StatKind),
@@ -163,4 +174,5 @@ pub enum EffectKind {
 
 // == support ==
 
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Reflect)]
 pub struct SupportAbility;

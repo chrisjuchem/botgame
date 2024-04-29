@@ -1,5 +1,4 @@
 pub mod button;
-pub mod deckbuilding;
 pub mod font;
 pub mod game_scene;
 pub mod main_menu;
@@ -8,24 +7,23 @@ use bevy::{
     ecs::system::{EntityCommands, SystemParam},
     prelude::*,
 };
-// use bevy_eventlistener::event_dispatcher::EventDispatcher;
 use bevy_framepace::FramepacePlugin;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
-    cards_v1::{
-        deck::{load_decks, Decks},
+    cards_v2::{
+        deck::{demo_deck, Decks},
         mesh::spawn_card_mesh,
     },
-    match_sim::StartMatchEvent,
+    match_sim::events::StartMatchEvent,
     ui::{
         button::update_buttons,
-        deckbuilding::DeckbuildingPlugin,
         font::{scale_text, CustomText, DefaultFont, DynamicFontSize, FontPlugin},
         game_scene::{
             scroll, setup_new_cards, spawn_match,
             targeting::{check_targets, start_targeting, Targeting},
-            transition_to_match, update_card_transforms, update_stat_overlays, MatchScenery,
+            transition_to_match, update_card_transforms, update_hand_cards, update_stat_overlays,
+            MatchScenery,
         },
         main_menu::{spawn_main_menu, MainMenu},
     },
@@ -44,24 +42,18 @@ impl Plugin for ScenePlugin {
         app.add_plugins(FramepacePlugin);
 
         app.add_plugins(FontPlugin);
-        app.add_plugins(DeckbuildingPlugin);
 
         app.insert_state(SceneState::MainMenu);
 
-        app.init_resource::<Decks>();
-        app.add_systems(Startup, load_decks);
+        app.insert_resource::<Decks>(Decks(
+            std::iter::once(("TEST DECK".to_string(), demo_deck())).collect(),
+        ));
+        // app.add_systems(Startup, load_decks);
 
         app.add_systems(OnEnter(SceneState::MainMenu), spawn_main_menu);
         app.add_systems(OnExit(SceneState::MainMenu), despawn_all_with_marker::<MainMenu>);
         app.add_systems(OnEnter(SceneState::Match), spawn_match);
         app.add_systems(OnExit(SceneState::Match), despawn_all_with_marker::<MatchScenery>);
-        // Hack to ensure `Out` handlers run before `Over`
-        // app.add_systems(
-        //     PreUpdate,
-        //     (|| {})
-        //         .after(EventDispatcher::<Pointer<Out>>::bubble_events)
-        //         .before(EventDispatcher::<Pointer<Over>>::bubble_events),
-        // );
 
         app.add_systems(Update, update_buttons);
         app.add_systems(Update, transition_to_match.run_if(on_event::<StartMatchEvent>()));
@@ -70,7 +62,7 @@ impl Plugin for ScenePlugin {
             (
                 spawn_card_mesh,
                 setup_new_cards,
-                // apply_deferred,
+                update_hand_cards,
                 update_card_transforms,
                 update_stat_overlays,
                 scroll,

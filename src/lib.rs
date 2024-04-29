@@ -3,7 +3,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-pub mod cards_v1;
+// pub mod cards_v1;
 pub mod cards_v2;
 pub mod logging;
 pub mod macros;

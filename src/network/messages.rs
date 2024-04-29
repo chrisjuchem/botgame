@@ -2,9 +2,9 @@ use bevy::prelude::UVec2;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards_v1::{Card, Effect},
+    cards_v2::deck::Decklist,
     make_enum,
-    match_sim::{GridLocation, MatchId, PlayerId},
+    match_sim::{GridLocation, MatchId, PlayerId, UnplayedCard},
 };
 
 make_enum! {
@@ -12,9 +12,8 @@ make_enum! {
     pub enum NetworkMessage {
         JoinMatchmakingQueueMessage,
         MatchStartedMessage,
-        EffectMessage,
-        NewTurnMessage,
-        ActivateAbilityMessage,
+        AddCardToDeckMessage,
+        DrawCardMessage,
         ProtocolErrorMessage,
     }
 }
@@ -22,38 +21,31 @@ make_enum! {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JoinMatchmakingQueueMessage {
     pub player_name: String,
-    pub deck: Card,
+    pub deck: Decklist,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MatchStartedMessage {
     pub match_id: MatchId,
-    pub players: Vec<PlayerId>,
+    pub players: Vec<(PlayerId, Decklist)>,
     pub you: PlayerId,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct EffectMessage {
+pub struct AddCardToDeckMessage {
     pub match_id: MatchId,
-    pub effect: Effect,
-    pub targets: Vec<GridLocation>,
+    pub player_id: PlayerId,
+    pub card: UnplayedCard,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct NewTurnMessage {
+pub struct DrawCardMessage {
     pub match_id: MatchId,
-    pub next_player: PlayerId,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ActivateAbilityMessage {
-    pub match_id: MatchId,
-    pub unit_location: UVec2,
-    pub ability_idx: usize,
-    pub targets: Vec<GridLocation>,
+    pub player_id: PlayerId,
+    pub card: UnplayedCard,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProtocolErrorMessage {
-    pub(crate) msg: String,
+    pub msg: String,
 }

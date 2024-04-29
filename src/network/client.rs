@@ -16,9 +16,12 @@ use extension_trait::extension_trait;
 use serde::Deserialize;
 
 use crate::{
-    match_sim::{EffectEvent, NewTurnEvent, StartMatchEvent, Us},
+    match_sim::{
+        events::{AddCardToDeckEvent, DrawCardEvent, NewTurnEvent, StartMatchEvent},
+        Us,
+    },
     network::{
-        messages::{EffectMessage, NetworkMessage, NewTurnMessage, ProtocolErrorMessage},
+        messages::{NetworkMessage, ProtocolErrorMessage},
         PORT,
     },
 };
@@ -87,7 +90,9 @@ pub impl ClientExt for RenetClient {
 fn read_messages(
     mut client: ResMut<RenetClient>,
     mut start_match: EventWriter<StartMatchEvent>,
-    mut effects: EventWriter<EffectEvent>,
+    mut add_card: EventWriter<AddCardToDeckEvent>,
+    mut draw_card: EventWriter<DrawCardEvent>,
+    // mut effects: EventWriter<EffectEvent>,
     mut turns: EventWriter<NewTurnEvent>,
     mut commands: Commands,
 ) {
@@ -98,12 +103,27 @@ fn read_messages(
                 start_match
                     .send(StartMatchEvent { match_id: data.match_id, players: data.players });
             },
-            NetworkMessage::EffectMessage(EffectMessage { match_id, effect, targets }) => {
-                effects.send(EffectEvent { match_id, effect, targets });
+            NetworkMessage::AddCardToDeckMessage(data) => {
+                add_card.send(AddCardToDeckEvent {
+                    match_id: data.match_id,
+                    player_id: data.player_id,
+                    card: data.card.clone(),
+                });
             },
-            NetworkMessage::NewTurnMessage(NewTurnMessage { match_id, next_player }) => {
-                turns.send(NewTurnEvent { match_id, next_player });
+            NetworkMessage::DrawCardMessage(data) => {
+                draw_card.send(DrawCardEvent {
+                    match_id: data.match_id,
+                    player_id: data.player_id,
+                    card: data.card.clone(),
+                });
             },
+
+            // NetworkMessage::EffectMessage(EffectMessage { match_id, effect, targets }) => {
+            //     effects.send(EffectEvent { match_id, effect, targets });
+            // },
+            // NetworkMessage::NewTurnMessage(NewTurnMessage { match_id, next_player }) => {
+            //     turns.send(NewTurnEvent { match_id, next_player });
+            // },
             NetworkMessage::ProtocolErrorMessage(ProtocolErrorMessage { msg }) => {
                 log::error!("ProtocolError from server: {msg}")
             },

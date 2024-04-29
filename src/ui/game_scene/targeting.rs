@@ -4,9 +4,8 @@ use bevy_mod_picking::prelude::*;
 use bevy_renet::renet::RenetClient;
 
 use crate::{
-    cards_v1::Ability,
     match_sim::{BaseCard, Cards, GridLocation, MatchId, PlayerId},
-    network::{messages::ActivateAbilityMessage, ClientExt},
+    network::ClientExt,
     ui::{
         button::{ClickHandler, GameButton},
         font::CustomText,
@@ -111,20 +110,20 @@ pub fn start_targeting(
         });
 
     let source_card = cards.get(targeting.source).unwrap();
-    let Ability::Activated { target_rules, .. } =
-        source_card.abilities.0.get(targeting.ability_idx).unwrap()
-    else {
-        panic!("Activated passive abillity!");
-    };
+    // let Ability::Activated { target_rules, .. } =
+    //     source_card.abilities.0.get(targeting.ability_idx).unwrap()
+    // else {
+    //     panic!("Activated passive abillity!");
+    // };
     let mut indicators = HashMap::new();
     for p in players.iter() {
         for x in 0..(GRID_H as u32 / 2) {
             for y in 0..(GRID_W as u32) {
                 let loc = GridLocation { coord: UVec2 { x, y }, owner: *p };
 
-                if !target_rules.filter.validate(&loc, &mut loc_idx, &cards, source_card.grid_loc) {
-                    continue;
-                }
+                // if !target_rules.filter.validate(&loc, &mut loc_idx, &cards, source_card.grid_loc) {
+                //     continue;
+                // }
 
                 let e = commands
                     .spawn((Name::new("floor_targeting_helper"), TargetingIndicator, PbrBundle {
@@ -202,13 +201,14 @@ pub fn check_targets(
 ) {
     let card = cards.get(targeting.source).unwrap();
     let ability = card.abilities.0.get(targeting.ability_idx).unwrap();
-    let Ability::Activated { target_rules, .. } = ability else {
-        panic!("Activated passive abillity!");
-    };
+    // let Ability::Activated { target_rules, .. } = ability else {
+    //     panic!("Activated passive abillity!");
+    // };
 
     let players = players.iter().copied().collect::<Vec<PlayerId>>();
-    let targets_valid =
-        target_rules.validate(&targeting.chosen, &mut grid_idx, &cards, &players, card.grid_loc);
+    let targets_valid = false;
+    // let targets_valid =
+    //     target_rules.validate(&targeting.chosen, &mut grid_idx, &cards, &players, card.grid_loc);
 
     let mut btn = btn.single_mut();
     if targets_valid && !btn.active {
@@ -238,10 +238,10 @@ fn submit_targets(
     }
 
     let (_, mid, loc) = cards.get(targeting.source).unwrap();
-    client.send(ActivateAbilityMessage {
-        match_id: *mid,
-        unit_location: loc.coord,
-        ability_idx: targeting.ability_idx,
-        targets: targeting.chosen.clone(), // todo: mem swap
-    })
+    // client.send(ActivateAbilityMessage {
+    //     match_id: *mid,
+    //     unit_location: loc.coord,
+    //     ability_idx: targeting.ability_idx,
+    //     targets: targeting.chosen.clone(), // todo: mem swap
+    // })
 }

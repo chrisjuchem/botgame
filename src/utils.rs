@@ -1,5 +1,13 @@
 use std::fmt::Formatter;
 
+use bevy::{
+    ecs::{
+        schedule::{Chain, SystemConfigs},
+        system::BoxedSystem,
+    },
+    prelude::{IntoSystem, IntoSystemConfigs},
+};
+
 #[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
 pub struct Uuid(bevy::utils::Uuid);
 impl Uuid {
@@ -86,5 +94,26 @@ where
             joined.push_str(part.as_ref());
         }
         joined
+    }
+}
+
+pub struct OrderedSystemList(Vec<BoxedSystem>);
+impl OrderedSystemList {
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
+    pub fn push<M>(&mut self, sys: impl IntoSystem<(), (), M>) {
+        self.0.push(Box::new(IntoSystem::into_system(sys)));
+    }
+}
+
+impl IntoSystemConfigs<()> for OrderedSystemList {
+    fn into_configs(self) -> SystemConfigs {
+        SystemConfigs::Configs {
+            configs: self.0.into_iter().map(IntoSystemConfigs::into_configs).collect(),
+            collective_conditions: vec![],
+            chained: Chain::Yes,
+        }
     }
 }

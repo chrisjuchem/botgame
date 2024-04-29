@@ -8,9 +8,10 @@ use bevy_mod_index::prelude::Index;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
-    cards_v1::Ability,
+    cards_v2::TriggerType,
     match_sim::{
-        BaseCard, Cards, CurrentTurn, Energy, GridLocation, Health, PlayerId, StartMatchEvent, Us,
+        events::StartMatchEvent, BaseCard, Cards, CurrentTurn, Energy, GridLocation, Hand, Health,
+        PlayerId, Us,
     },
     ui::{
         button::{ClickHandler, GameButton},
@@ -83,6 +84,30 @@ pub fn spawn_match(
     // });
 }
 
+#[derive(Component)]
+pub struct OurHandUi;
+
+pub fn update_hand_cards(
+    us: Res<Us>,
+    hands: Query<&Hand, Changed<Hand>>,
+    mut player_idx: Index<PlayerId>,
+    ui: Query<Entity, With<OurHandUi>>,
+    mut commands: Commands,
+) {
+    let p_e = player_idx.single(&us.0);
+
+    let Ok(our_hand) = hands.get(p_e) else { return };
+
+    for e in &ui {
+        commands.entity(e).despawn_recursive();
+    }
+    commands.spawn((OurHandUi, Name::new("HAND DISPLAY"), NodeBundle {
+        style: Style { width: Val::Px(100.), height: Val::Vh(80.), ..default() },
+        background_color: Color::YELLOW.into(),
+        ..default()
+    }));
+}
+
 pub const GRID_H: f32 = 4.;
 pub const GRID_W: f32 = 5.;
 
@@ -110,7 +135,7 @@ pub struct StatsPanel(pub Entity);
 // pub struct HoverPanel(pub Entity);
 
 pub fn update_stat_overlays(
-    cards: Query<(&Name, &Energy, &Health, &Transform)>,
+    cards: Query<(&Name, &Health, &Transform)>,
     mut stats: Query<(Entity, &mut Text, &mut Style, &Node, &StatsPanel)>,
     camera: Query<(&Camera, &GlobalTransform)>,
     mut commands: Commands,
@@ -118,7 +143,7 @@ pub fn update_stat_overlays(
     let (cam, cam_pos) = camera.single();
 
     for (e, mut txt, mut style, node, source) in &mut stats {
-        let Ok((name, energy, health, transform)) = cards.get(source.0) else {
+        let Ok((name, health, transform)) = cards.get(source.0) else {
             // base card was despaawned
             commands.entity(e).despawn_recursive();
             continue;
@@ -131,8 +156,7 @@ pub fn update_stat_overlays(
 
         style.margin.left = Val::Px(-(node.size().x / 2.)); // updated every frame
 
-        txt.sections[0].value =
-            format!("{}\n{} ❤\n{}/{} 🔋", name, health.0, energy.current, energy.max);
+        txt.sections[0].value = format!("{}\n{} ❤", name, health.0);
     }
 }
 
@@ -220,12 +244,12 @@ pub fn create_ability_overlay(
             .with_children(|base| {
                 for (i, ability) in card.abilities.0.iter().enumerate() {
                     let active = buttons_active
-                        && match ability {
-                            Ability::Activated { effect, cost, .. } => {
-                                let energy_cost = cost.get(effect).energy;
-                                card.energy.current >= energy_cost
+                        && match ability.trigger.trigger_type {
+                            TriggerType::ManualActivation { .. } => {
+                                //todo: enforce filter == self
+                                true // check available energy/scrap
                             },
-                            Ability::Passive { .. } => false,
+                            _ => false,
                         };
 
                     base.spawn((
@@ -246,7 +270,12 @@ pub fn create_ability_overlay(
                     ))
                     .add_child(
                         ui.spawn_text(
-                            CustomText::new(ability.full_text()).color(Color::WHITE).size(15.),
+                            CustomText::new(
+                                // todo: ability.full_text()
+                                "<ABILITY TEXT>",
+                            )
+                            .color(Color::WHITE)
+                            .size(15.),
                         )
                         .id(),
                     );
