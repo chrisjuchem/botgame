@@ -2,22 +2,28 @@ use std::fmt::{Display, Formatter};
 
 use crate::{
     cards::{
-        Ability, Card, Effect, EffectType, ImplicitTargetRules, PassiveEffect, TargetAmount,
-        TargetFilter, TargetRules,
+        Ability, ActivatedAbility, Card, Effect, EffectType, ImplicitTargetRules, PassiveAbility,
+        PassiveEffect, Robot, TargetAmount, TargetFilter, TargetRules,
     },
     utils::StrJoin,
 };
 
 impl Card {
     pub fn full_text(&self) -> String {
-        let Card { name, summon_cost, hp, abilities, starting_energy, max_energy } = self;
+        let Card { name, ability } = self;
+        let fmtd = ability.full_text();
+        format!("{name}\n{fmtd}")
+    }
+}
+
+impl Robot {
+    pub fn full_text(&self) -> String {
+        let Robot { hp, attack, size, abilities } = self;
         let fmtd_abilities = abilities.iter().map(Ability::full_text).join("\n");
 
         format!(
             "\
-{name}
-{hp} HP
-{starting_energy}/{max_energy} energy
+{attack} ATK, {hp} HP
 {fmtd_abilities}"
         )
     }
@@ -26,30 +32,42 @@ impl Card {
 impl Ability {
     pub fn full_text(&self) -> String {
         match self {
-            Ability::Activated { effect, cost, target_rules } => {
-                let energy_cost = self.cost().unwrap().energy;
-                let effect_str = effect.full_text(target_rules.text());
-
-                format!("{{{energy_cost}}}: {effect_str}",)
-            },
-            Ability::Passive { passive_effect, target_filter } => {
-                passive_effect.full_text(target_filter.text())
-            },
+            Ability::Activated(ability) => ability.full_text(),
+            Ability::Passive(ability) => ability.full_text(),
         }
+    }
+}
+
+impl ActivatedAbility {
+    pub fn full_text(&self) -> String {
+        let ActivatedAbility { effect, cost, target_rules } = self;
+        {
+            let energy_cost = self.cost().energy;
+            let effect_str = effect.full_text(target_rules.text());
+
+            format!("{{{energy_cost}}}: {effect_str}",)
+        }
+    }
+}
+
+impl PassiveAbility {
+    pub fn full_text(&self) -> String {
+        let PassiveAbility { passive_effect, target_filter } = self;
+        passive_effect.full_text(target_filter.text())
     }
 }
 
 impl Effect {
     pub fn full_text(&self, target_str: String) -> String {
         match self {
-            Effect::Attack { damage, effect_type } => {
-                format!("Deal {damage} {effect_type} damage to {target_str}.")
+            Effect::Attack {} => {
+                format!("Fight {target_str}.")
             },
             Effect::GrantAbilities { abilities } => std::iter::once(format!("Give {target_str}:"))
                 .chain(abilities.iter().map(Ability::full_text))
                 .join("\n"),
-            Effect::SummonCard { card } => {
-                format!("Summon the following unit to {target_str}:\n\n{}\n", card.full_text())
+            Effect::SummonRobot { robot } => {
+                format!("Summon the following unit to {target_str}:\n\n{}\n", robot.full_text())
             },
             Effect::MultipleEffects { effects } => {
                 effects.iter().map(|e| e.full_text(target_str.clone())).join(" ")

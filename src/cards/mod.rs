@@ -18,24 +18,72 @@ use crate::{
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 pub struct Card {
     pub name: String,
-    pub summon_cost: Cost,
+    pub ability: ActivatedAbility,
+}
+impl Card {
+    pub fn as_robot(&self) -> Option<&Robot> {
+        match &self.ability {
+            ActivatedAbility { effect: Effect::SummonRobot { robot }, .. } => Some(robot),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+pub struct Robot {
+    pub size: u32,
+    pub attack: u32,
     pub hp: u32,
     pub abilities: Vec<Ability>, // name + abilityData ??
-    pub starting_energy: u32,
-    pub max_energy: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
 #[reflect(no_field_bounds)]
 pub enum Ability {
-    Activated { effect: Effect, cost: AbilityCost, target_rules: TargetRules },
-    Passive { passive_effect: PassiveEffect, target_filter: TargetFilter },
+    Activated(ActivatedAbility),
+    Passive(PassiveAbility),
 }
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[reflect(no_field_bounds)]
+pub struct ActivatedAbility {
+    pub effect: Effect,
+    pub cost: AbilityCost,
+    pub target_rules: TargetRules,
+}
+impl ActivatedAbility {
+    pub fn cost(&self) -> Cost {
+        self.cost.get(&self.effect)
+    }
+
+    pub fn basic_summon(robot: Robot) -> Self {
+        Self {
+            effect: Effect::SummonRobot { robot },
+            cost: AbilityCost::SUMMON_COST,
+            target_rules: TargetRules {
+                amount: TargetAmount::N { n: 1 },
+                filter: TargetFilter::And(vec![TargetFilter::Friendly, TargetFilter::Unoccupied]),
+            },
+        }
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[reflect(no_field_bounds)]
+pub struct PassiveAbility {
+    pub passive_effect: PassiveEffect,
+    pub target_filter: TargetFilter,
+}
+
 impl Ability {
-    fn cost(&self) -> Option<Cost> {
+    pub const BASIC_ATTACK: Ability = Ability::Activated(ActivatedAbility {
+        cost: AbilityCost::Static { cost: Cost::FREE },
+        effect: Effect::Attack,
+        target_rules: TargetRules { amount: TargetAmount::N { n: 1 }, filter: TargetFilter::Enemy },
+    });
+
+    pub fn cost(&self) -> Option<Cost> {
         match self {
-            Ability::Activated { effect, cost, .. } => Some(cost.get(effect)),
-            Ability::Passive { .. } => None,
+            Ability::Activated(ability) => Some(ability.cost()),
+            Ability::Passive(_) => None,
         }
     }
 }
@@ -50,14 +98,27 @@ impl Cost {
 
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
 pub enum Attribute {
+    Size,
+    Attack,
     Hp,
-    SummonCost,
+    EnergyCost,
 }
 impl Attribute {
-    pub fn get(&self, card: &Card) -> u32 {
+    pub fn get(&self, card: &Card) -> Option<u32> {
         match self {
-            Attribute::Hp => card.hp,
-            Attribute::SummonCost => card.summon_cost.energy,
+            Attribute::Hp | Attribute::Attack | Attribute::Size => {
+                card.as_robot().map(|bot| self.get_robot(bot).unwrap())
+            },
+            Attribute::EnergyCost => Some(card.ability.cost().energy),
+        }
+    }
+
+    pub fn get_robot(&self, robot: &Robot) -> Option<u32> {
+        match self {
+            Attribute::Hp => Some(robot.hp),
+            Attribute::Attack => Some(robot.attack),
+            Attribute::Size => Some(robot.size),
+            Attribute::EnergyCost => None,
         }
     }
 }
@@ -68,26 +129,27 @@ pub enum AbilityCost {
     Derived { attribute: Attribute },
 }
 impl AbilityCost {
+    const SUMMON_COST: AbilityCost = AbilityCost::Derived { attribute: Attribute::Size };
+
     pub fn get(&self, effect: &Effect) -> Cost {
         match self {
             AbilityCost::Static { cost } => *cost,
             AbilityCost::Derived { attribute } => {
-                let Effect::SummonCard { card } = effect else {
-                    panic!("DerivedCost only valid for SummonCard.")
+                let Effect::SummonRobot { robot } = effect else {
+                    panic!("DerivedCost only valid for SummonRobot.")
                 };
-                Cost { energy: attribute.get(card) }
+                Cost { energy: attribute.get_robot(robot).unwrap_or(0) }
             },
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
-// #[reflect(where Ability: FromReflect)]
 #[reflect(no_field_bounds)]
 pub enum Effect {
-    Attack { damage: u32, effect_type: EffectType },
+    Attack,
     GrantAbilities { abilities: Vec<Ability> }, // Vec to avoid infinite type
-    SummonCard { card: Card },
+    SummonRobot { robot: Robot },
     // SharableEnergy {
     //     factor: f32,
     // },

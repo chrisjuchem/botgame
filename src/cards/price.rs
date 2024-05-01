@@ -1,8 +1,11 @@
-use crate::cards::{Ability, Effect, PassiveEffect, TargetAmount, TargetFilter, TargetRules};
+use crate::cards::{
+    Ability, ActivatedAbility, Effect, PassiveAbility, PassiveEffect, TargetAmount, TargetFilter,
+    TargetRules,
+};
 
 pub fn price_effect(effect: &Effect, target_rules: &TargetRules) -> f32 {
-    let (mut score, positive_effect) = match effect {
-        Effect::Attack { damage, .. } => ((*damage as f32).log10() * 10., false),
+    let (mut score, detrimental) = match effect {
+        Effect::Attack {} => (0., false),
         _ => todo!(),
     };
 
@@ -30,25 +33,22 @@ pub fn price_passive_effect(passive_effect: &PassiveEffect, target_filter: &Targ
     base_price * muiltiplier
 }
 
-pub fn price_card(abilities: &[Ability], hp: u32, starting_energy: u32, max_energy: u32) -> f32 {
+pub fn price_card(abilities: &[Ability], hp: u32, attack: u32) -> f32 {
     let mut price = 3.;
 
-    let hp_diff = hp as f32 - 12.;
+    let hp_diff = hp as f32 - 4.;
     price += hp_diff * 0.15;
-
-    if max_energy > 0 {
-        // cheaper if < 50% energey, costlier if >
-        price += (2. * starting_energy as f32 / max_energy as f32) - 1.;
-    }
+    let atk_diff = attack as f32 - 4.;
+    price += atk_diff * 0.15;
 
     for ability in abilities {
         let cost_change = match ability {
-            Ability::Activated { effect, cost, target_rules } => {
+            Ability::Activated(ActivatedAbility { effect, cost, target_rules }) => {
                 let ability_price = price_effect(effect, target_rules);
                 let ability_cost = cost.get(effect).energy as f32;
                 ability_price - ability_cost
             },
-            Ability::Passive { passive_effect, target_filter } => {
+            Ability::Passive(PassiveAbility { passive_effect, target_filter }) => {
                 price_passive_effect(passive_effect, target_filter)
             },
         };

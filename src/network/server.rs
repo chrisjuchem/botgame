@@ -20,7 +20,7 @@ use bevy_renet::{
 use extension_trait::extension_trait;
 
 use crate::{
-    cards::{Ability, Card, Effect},
+    cards::{deck::Deck, Ability, ActivatedAbility, Card, Effect},
     match_sim::{
         Cards, CurrentTurn, EffectEvent, GridLocation, MatchId, NewTurnEvent, OwnerIndex, PlayerId,
         StartMatchEvent,
@@ -73,7 +73,7 @@ struct MatchClientMap(HashMap<MatchId, Vec<ClientId>>);
 #[derive(Resource, Default)]
 struct MMQueue(HashMap<ClientId, QueueInfo>);
 struct QueueInfo {
-    deck: Card,
+    deck: Deck,
     player_name: String,
 }
 
@@ -183,13 +183,13 @@ fn matchmaking(
         .collect::<Vec<_>>();
     *mm_queue = MMQueue(i.collect());
 
-    for (pid, card) in &mut players {
-        effects.send(EffectEvent {
-            match_id,
-            effect: Effect::SummonCard { card: card.take().unwrap() },
-            targets: vec![GridLocation { owner: *pid, coord: UVec2::new(0, 2) }],
-        });
-    }
+    // for (pid, card) in &mut players {
+    //     effects.send(EffectEvent {
+    //         match_id,
+    //         effect: Effect::SummonCard { card: card.take().unwrap() },
+    //         targets: vec![GridLocation { owner: *pid, coord: UVec2::new(0, 2) }],
+    //     });
+    // }
 
     let players = players.into_iter().map(|(pid, _)| pid).collect::<Vec<_>>();
     let p1 = players[0]; //todo random
@@ -219,12 +219,13 @@ fn send_effects(
     mut server: ResMut<RenetServer>,
     client_map: Res<MatchClientMap>,
 ) {
-    for EffectEvent { match_id, effect, targets } in effects.read() {
+    for EffectEvent { match_id, effect, targets, source } in effects.read() {
         for client_id in client_map.0.get(match_id).unwrap() {
             server.send(client_id, EffectMessage {
                 match_id: *match_id,
                 effect: effect.clone(),
                 targets: targets.clone(),
+                source: *source,
             });
         }
     }
@@ -278,16 +279,17 @@ fn process_abilities(
             continue;
         };
 
-        let Ability::Activated { effect, cost, target_rules } = ability else {
+        let Ability::Activated(ActivatedAbility { effect, cost, target_rules }) = ability else {
             server.send_error(&client_id, "Ability is passive.");
             continue;
         };
 
-        let energy_cost = cost.get(&effect).energy;
-        if energy_cost > card.energy.current {
-            server.send_error(&client_id, "Not enough energy.");
-            continue;
-        }
+        // TODO
+        // let energy_cost = cost.get(&effect).energy;
+        // if energy_cost > card.energy.current {
+        //     server.send_error(&client_id, "Not enough energy.");
+        //     continue;
+        // }
 
         let next_player = clients
             .0
@@ -314,25 +316,28 @@ fn process_abilities(
             continue;
         }
 
-        effects.send(EffectEvent {
-            match_id: activation.match_id,
-            effect: Effect::ChangeEnergy { amount: -(energy_cost as i32) },
-            targets: vec![*card.grid_loc],
-        });
+        // effects.send(EffectEvent {
+        //     match_id: activation.match_id,
+        //     effect: Effect::ChangeEnergy { amount: -(energy_cost as i32) },
+        //     targets: vec![*card.grid_loc],
+        //     source: None,
+        // });
         effects.send(EffectEvent {
             match_id: activation.match_id,
             effect: effect.clone(),
             targets: activation.targets,
+            source: Some(*card.grid_loc),
         });
 
-        turns.send(NewTurnEvent { match_id: activation.match_id, next_player });
-        effects.send(EffectEvent {
-            match_id: activation.match_id,
-            effect: Effect::ChangeEnergy { amount: 1 },
-            targets: cards
-                .iter_many(owner_idx.lookup(&next_player))
-                .map(|card| *card.grid_loc)
-                .collect(),
-        });
+        // turns.send(NewTurnEvent { match_id: activation.match_id, next_player });
+        // effects.send(EffectEvent {
+        //     match_id: activation.match_id,
+        //     effect: Effect::ChangeEnergy { amount: 1 },
+        //     targets: cards
+        //         .iter_many(owner_idx.lookup(&next_player))
+        //         .map(|card| *card.grid_loc)
+        //         .collect(),
+        //     source: None,
+        // });
     }
 }

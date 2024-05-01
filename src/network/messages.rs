@@ -2,7 +2,7 @@ use bevy::prelude::UVec2;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards::{Card, Effect},
+    cards::{deck::Deck, Card, Effect},
     make_enum,
     match_sim::{GridLocation, MatchId, PlayerId},
 };
@@ -22,7 +22,7 @@ make_enum! {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JoinMatchmakingQueueMessage {
     pub player_name: String,
-    pub deck: Card,
+    pub deck: Deck,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -37,6 +37,7 @@ pub struct EffectMessage {
     pub match_id: MatchId,
     pub effect: Effect,
     pub targets: Vec<GridLocation>,
+    pub source: Option<GridLocation>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

@@ -8,9 +8,9 @@ use bevy_mod_index::prelude::Index;
 use bevy_mod_picking::prelude::*;
 
 use crate::{
-    cards::Ability,
+    cards::{Ability, ActivatedAbility},
     match_sim::{
-        BaseCard, Cards, CurrentTurn, Energy, GridLocation, Health, PlayerId, StartMatchEvent, Us,
+        Attack, BaseCard, Cards, CurrentTurn, GridLocation, Health, PlayerId, StartMatchEvent, Us,
     },
     ui::{
         button::{ClickHandler, GameButton},
@@ -110,7 +110,7 @@ pub struct StatsPanel(pub Entity);
 // pub struct HoverPanel(pub Entity);
 
 pub fn update_stat_overlays(
-    cards: Query<(&Name, &Energy, &Health, &Transform)>,
+    cards: Query<(&Name, &Attack, &Health, &Transform)>,
     mut stats: Query<(Entity, &mut Text, &mut Style, &Node, &StatsPanel)>,
     camera: Query<(&Camera, &GlobalTransform)>,
     mut commands: Commands,
@@ -118,7 +118,7 @@ pub fn update_stat_overlays(
     let (cam, cam_pos) = camera.single();
 
     for (e, mut txt, mut style, node, source) in &mut stats {
-        let Ok((name, energy, health, transform)) = cards.get(source.0) else {
+        let Ok((name, attack, health, transform)) = cards.get(source.0) else {
             // base card was despaawned
             commands.entity(e).despawn_recursive();
             continue;
@@ -131,8 +131,7 @@ pub fn update_stat_overlays(
 
         style.margin.left = Val::Px(-(node.size().x / 2.)); // updated every frame
 
-        txt.sections[0].value =
-            format!("{}\n{} ❤\n{}/{} 🔋", name, health.0, energy.current, energy.max);
+        txt.sections[0].value = format!("{}\n{} ❤\n{} ⚔", name, health.0, attack.0);
     }
 }
 
@@ -221,9 +220,10 @@ pub fn create_ability_overlay(
                 for (i, ability) in card.abilities.0.iter().enumerate() {
                     let active = buttons_active
                         && match ability {
-                            Ability::Activated { effect, cost, .. } => {
-                                let energy_cost = cost.get(effect).energy;
-                                card.energy.current >= energy_cost
+                            Ability::Activated(ActivatedAbility { effect, cost, .. }) => {
+                                // let energy_cost = cost.get(effect).energy;
+                                // card.energy.current >= energy_cost
+                                true //FIXME
                             },
                             Ability::Passive { .. } => false,
                         };

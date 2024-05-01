@@ -98,8 +98,8 @@ fn read_messages(
                 start_match
                     .send(StartMatchEvent { match_id: data.match_id, players: data.players });
             },
-            NetworkMessage::EffectMessage(EffectMessage { match_id, effect, targets }) => {
-                effects.send(EffectEvent { match_id, effect, targets });
+            NetworkMessage::EffectMessage(EffectMessage { match_id, effect, targets, source }) => {
+                effects.send(EffectEvent { match_id, effect, targets, source });
             },
             NetworkMessage::NewTurnMessage(NewTurnMessage { match_id, next_player }) => {
                 turns.send(NewTurnEvent { match_id, next_player });

@@ -4,7 +4,7 @@ use bevy_mod_picking::prelude::*;
 use bevy_renet::renet::RenetClient;
 
 use crate::{
-    cards::Ability,
+    cards::{Ability, ActivatedAbility},
     match_sim::{BaseCard, Cards, GridLocation, MatchId, PlayerId},
     network::{messages::ActivateAbilityMessage, ClientExt},
     ui::{
@@ -111,7 +111,7 @@ pub fn start_targeting(
         });
 
     let source_card = cards.get(targeting.source).unwrap();
-    let Ability::Activated { target_rules, .. } =
+    let Ability::Activated(ActivatedAbility { target_rules, .. }) =
         source_card.abilities.0.get(targeting.ability_idx).unwrap()
     else {
         panic!("Activated passive abillity!");
@@ -202,7 +202,7 @@ pub fn check_targets(
 ) {
     let card = cards.get(targeting.source).unwrap();
     let ability = card.abilities.0.get(targeting.ability_idx).unwrap();
-    let Ability::Activated { target_rules, .. } = ability else {
+    let Ability::Activated(ActivatedAbility { target_rules, .. }) = ability else {
         panic!("Activated passive abillity!");
     };
 

@@ -2,8 +2,8 @@ use rand::{prelude::SliceRandom, thread_rng, Rng};
 
 use crate::cards::{
     price::{price_card, price_effect},
-    Ability, AbilityCost, Card, Cost, Effect, EffectType, PassiveEffect, TargetAmount,
-    TargetFilter, TargetRules,
+    Ability, AbilityCost, ActivatedAbility, Card, Cost, Effect, EffectType, PassiveAbility,
+    PassiveEffect, Robot, TargetAmount, TargetFilter, TargetRules,
 };
 
 /// Returns a random number in `[1, limit)`
@@ -36,7 +36,7 @@ fn random_effect_type() -> EffectType {
 }
 
 pub fn random_card() -> Card {
-    let mut abilities = vec![random_active_ability()];
+    let mut abilities = vec![Ability::BASIC_ATTACK];
     if rnd(4) < 2 {
         abilities.push(random_ability());
     }
@@ -45,58 +45,54 @@ pub fn random_card() -> Card {
         abilities.push(random_passive_ability());
     }
 
-    let max_energy = abilities
-        .iter()
-        .filter_map(|a| match a {
-            Ability::Activated { cost, effect, .. } => Some(cost.get(effect).energy),
-            Ability::Passive { .. } => None,
-        })
-        .max()
-        .unwrap();
-    let starting_energy = max_energy.min(rnd_log_n(3, 3));
-    let hp = rnd_log_n(8, 12);
+    // let max_energy = abilities
+    //     .iter()
+    //     .filter_map(|a| match a {
+    //         Ability::Activated { cost, effect, .. } => Some(cost.get(effect).energy),
+    //         Ability::Passive { .. } => None,
+    //     })
+    //     .max()
+    //     .unwrap();
+    // let starting_energy = max_energy.min(rnd_log_n(3, 3));
+    let hp = rnd_log_n(5, 4);
+    let attack = rnd_log_n(5, 4);
+    let cost = price_card(&abilities, hp, attack) as u32;
 
     Card {
         name: random_name(),
-        summon_cost: Cost {
-            energy: price_card(&abilities, hp, starting_energy, max_energy) as u32,
-        },
-        hp,
-        abilities,
-        starting_energy,
-        max_energy,
+        ability: ActivatedAbility::basic_summon(Robot { hp, attack, size: cost, abilities }),
     }
 }
 
 pub fn random_ability() -> Ability {
     match rnd(100) {
-        0..80 => random_active_ability(),
+        // 0..80 => random_active_ability(),
         _ => random_passive_ability(),
     }
 }
 
-fn random_active_ability() -> Ability {
-    let (effect, target_rules) = match rnd(100) {
-        _ => {
-            let n = rnd_log(10) as usize;
-            let amount = if rnd(5) < 2 { TargetAmount::UpToN { n } } else { TargetAmount::N { n } };
-            let target_rules = TargetRules {
-                amount,
-                filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
-            };
-
-            let damage = rnd_log_n(10, 3) + 1;
-            let effect = Effect::Attack { damage, effect_type: random_effect_type() };
-
-            (effect, target_rules)
-        },
-    };
-
-    let score = price_effect(&effect, &target_rules);
-    let jitter = rnd(3) as f32 - 1.;
-    let cost = AbilityCost::Static { cost: Cost { energy: (score + jitter) as u32 } };
-    Ability::Activated { effect, cost, target_rules }
-}
+// fn random_active_ability() -> Ability {
+//     let (effect, target_rules) = match rnd(100) {
+//         _ => {
+//             let n = rnd_log(10) as usize;
+//             let amount = if rnd(5) < 2 { TargetAmount::UpToN { n } } else { TargetAmount::N { n } };
+//             let target_rules = TargetRules {
+//                 amount,
+//                 filter: TargetFilter::And(vec![TargetFilter::Enemy, TargetFilter::Occupied]),
+//             };
+//
+//             let damage = rnd_log_n(10, 3) + 1;
+//             let effect = Effect::Attack { damage, effect_type: random_effect_type() };
+//
+//             (effect, target_rules)
+//         },
+//     };
+//
+//     let score = price_effect(&effect, &target_rules);
+//     let jitter = rnd(3) as f32 - 1.;
+//     let cost = AbilityCost::Static { cost: Cost { energy: (score + jitter) as u32 } };
+//     Ability::Activated { effect, cost, target_rules }
+// }
 
 fn random_passive_ability() -> Ability {
     let (passive_effect, target_filter) = match rnd(100) {
@@ -110,7 +106,7 @@ fn random_passive_ability() -> Ability {
         },
     };
 
-    Ability::Passive { passive_effect, target_filter }
+    Ability::Passive(PassiveAbility { passive_effect, target_filter })
 }
 
 fn random_name() -> String {

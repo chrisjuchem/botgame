@@ -7,7 +7,10 @@ use extension_trait::extension_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cards::{mesh::NeedsMesh, Ability, Card, Effect, ImplicitTargetRules, PassiveEffect},
+    cards::{
+        mesh::NeedsMesh, Ability, Card, Effect, ImplicitTargetRules, PassiveAbility, PassiveEffect,
+        Robot,
+    },
     utils::Uuid,
 };
 
@@ -96,16 +99,13 @@ pub struct Us(pub PlayerId);
 // ====== Card Components ======
 
 #[derive(Component)]
-pub struct BaseCard(pub Card);
+pub struct BaseCard(pub Robot);
 
 #[derive(Component, Debug)]
 pub struct Health(pub i32);
 
 #[derive(Component, Debug)]
-pub struct Energy {
-    pub current: u32,
-    pub max: u32,
-}
+pub struct Attack(pub i32);
 
 #[derive(Component, Debug, Copy, Clone, Eq, PartialEq, Hash, Serialize, Deserialize)]
 pub struct GridLocation {
@@ -146,7 +146,7 @@ pub struct CardQuery {
     pub grid_loc: &'static GridLocation,
     pub abilities: &'static mut Abilities,
     pub health: &'static mut Health,
-    pub energy: &'static mut Energy,
+    pub attack: &'static mut Attack,
 }
 impl CardQuery {}
 
@@ -166,6 +166,7 @@ pub struct EffectEvent {
     pub match_id: MatchId,
     pub effect: Effect,
     pub targets: Vec<GridLocation>,
+    pub source: Option<GridLocation>,
 }
 
 #[derive(Event, Clone)]
@@ -216,7 +217,7 @@ fn next_turn(
 }
 
 fn client_effects(mut e: EventReader<EffectEvent>) {
-    for EffectEvent { match_id, effect, targets } in e.read() {}
+    for EffectEvent { match_id, effect, targets, source } in e.read() {}
 }
 
 fn common_effects(
@@ -225,12 +226,12 @@ fn common_effects(
     mut cards: CardsMut,
     mut loc_idx: Index<GridLocation>,
 ) {
-    for EffectEvent { match_id, effect, targets } in e.read() {
+    for EffectEvent { match_id, effect, targets, source } in e.read() {
         debug!("effect {effect:?} with targets {targets:?}");
         match effect {
-            Effect::SummonCard { card } => {
+            Effect::SummonRobot { robot } => {
                 for t in targets {
-                    commands.spawn_card(card.clone(), *match_id, *t)
+                    commands.spawn_robot(robot.clone(), *match_id, *t)
                 }
             },
             Effect::GrantAbilities { abilities } => {
@@ -249,10 +250,11 @@ fn common_effects(
                 }
             },
             Effect::ChangeEnergy { amount } => {
-                for t in targets {
-                    let mut e = cards.get_mut(loc_idx.single(t)).unwrap().energy;
-                    e.current = (e.current as i32 + amount).clamp(0, e.max as i32) as u32;
-                }
+                todo!();
+                // for t in targets {
+                //     let mut e = cards.get_mut(loc_idx.single(t)).unwrap().energy;
+                //     e.current = (e.current as i32 + amount).clamp(0, e.max as i32) as u32;
+                // }
             },
             Effect::DestroyCard => {
                 // triggering abilities handled by server effects
@@ -277,51 +279,61 @@ fn server_effects(
     mut match_idx: Index<MatchId>,
 ) {
     let mut new_events = vec![];
-    for EffectEvent { match_id, effect, targets } in e_reader.read(&*e) {
+    for EffectEvent { match_id, effect, targets, source } in e_reader.read(&*e) {
         match effect {
-            Effect::Attack { effect_type, damage } => {
+            Effect::Attack => {
                 for t in targets {
-                    let mut final_factor = 1.;
-                    for (ability, ability_source_loc) in cards
-                        .iter_many(match_idx.lookup(match_id))
-                        .flat_map(|card| card.abilities.0.iter().map(|a| (a, *card.grid_loc)))
-                    {
-                        if let Ability::Passive { passive_effect, target_filter } = ability {
-                            if target_filter.validate(t, &mut loc_idx, &cards, &ability_source_loc)
-                            {
-                                match passive_effect {
-                                    PassiveEffect::DamageResistance {
-                                        effect_type: effect_filter,
-                                        factor,
-                                    } => {
-                                        if *effect_type == *effect_filter {
-                                            final_factor *= factor;
-                                        }
-                                    },
-                                    PassiveEffect::WhenHit { effect, target_rules } => {
-                                        let target = match target_rules {
-                                            ImplicitTargetRules::ThisUnit => ability_source_loc,
-                                            ImplicitTargetRules::ThatUnit => *t,
-                                        };
+                    // let mut final_factor = 1.;
+                    // for (ability, ability_source_loc) in cards
+                    //     .iter_many(match_idx.lookup(match_id))
+                    //     .flat_map(|card| card.abilities.0.iter().map(|a| (a, *card.grid_loc)))
+                    // {
+                    //     if let Ability::Passive { passive_effect, target_filter } = ability {
+                    //         if target_filter.validate(t, &mut loc_idx, &cards, &ability_source_loc)
+                    //         {
+                    //             match passive_effect {
+                    //                 PassiveEffect::DamageResistance {
+                    //                     effect_type: effect_filter,
+                    //                     factor,
+                    //                 } => {
+                    //                     if *effect_type == *effect_filter {
+                    //                         final_factor *= factor;
+                    //                     }
+                    //                 },
+                    //                 PassiveEffect::WhenHit { effect, target_rules } => {
+                    //                     let target = match target_rules {
+                    //                         ImplicitTargetRules::ThisUnit => ability_source_loc,
+                    //                         ImplicitTargetRules::ThatUnit => *t,
+                    //                     };
+                    //
+                    //                     new_events.push(EffectEvent {
+                    //                         match_id: *match_id,
+                    //                         effect: effect.clone(),
+                    //                         targets: vec![target],
+                    //                     })
+                    //                 },
+                    //                 PassiveEffect::WhenDies { .. } => {},
+                    //             }
+                    //         }
+                    //     }
+                    // }
+                    //
+                    // let final_dmg = *damage as f32 * final_factor;
 
-                                        new_events.push(EffectEvent {
-                                            match_id: *match_id,
-                                            effect: effect.clone(),
-                                            targets: vec![target],
-                                        })
-                                    },
-                                    PassiveEffect::WhenDies { .. } => {},
-                                }
-                            }
-                        }
-                    }
-
-                    let final_dmg = *damage as f32 * final_factor;
+                    let src_card = cards.get(loc_idx.single(&source.unwrap())).unwrap();
+                    let target_card = cards.get(loc_idx.single(t)).unwrap();
 
                     new_events.push(EffectEvent {
                         match_id: *match_id,
-                        effect: Effect::ChangeHp { amount: -(final_dmg as i32) },
+                        effect: Effect::ChangeHp { amount: -(src_card.attack.0 as i32) },
                         targets: vec![*t],
+                        source: *source,
+                    });
+                    new_events.push(EffectEvent {
+                        match_id: *match_id,
+                        effect: Effect::ChangeHp { amount: -(target_card.attack.0 as i32) },
+                        targets: vec![source.unwrap()],
+                        source: Some(*t),
                     });
                 }
             },
@@ -331,6 +343,7 @@ fn server_effects(
                         match_id: *match_id,
                         effect: e.clone(),
                         targets: targets.clone(),
+                        source: *source,
                     })
                 }
             },
@@ -341,7 +354,9 @@ fn server_effects(
                         .iter_many(match_idx.lookup(match_id))
                         .flat_map(|card| card.abilities.0.iter().map(|a| (a, *card.grid_loc)))
                     {
-                        if let Ability::Passive { passive_effect, target_filter } = ability {
+                        if let Ability::Passive(PassiveAbility { passive_effect, target_filter }) =
+                            ability
+                        {
                             if target_filter.validate(t, &mut loc_idx, &cards, &ability_source_loc)
                             {
                                 if let PassiveEffect::WhenDies { effect, target_rules } =
@@ -356,6 +371,7 @@ fn server_effects(
                                         match_id: *match_id,
                                         effect: effect.clone(),
                                         targets: vec![target],
+                                        source: None,
                                     })
                                 }
                             }
@@ -363,7 +379,7 @@ fn server_effects(
                     }
                 }
             },
-            Effect::SummonCard { .. }
+            Effect::SummonRobot { .. }
             | Effect::GrantAbilities { .. }
             | Effect::ChangeHp { .. }
             | Effect::ChangeEnergy { .. } => {
@@ -383,6 +399,7 @@ fn server_state_based(mut e: EventWriter<EffectEvent>, cards: Cards) {
                 match_id: *card.match_id,
                 effect: Effect::DestroyCard,
                 targets: vec![*card.grid_loc],
+                source: None,
             });
         }
     }
@@ -404,14 +421,14 @@ fn cleanup_match(
 
 #[extension_trait]
 impl CommandExts for Commands<'_, '_> {
-    fn spawn_card(&mut self, card: Card, mid: MatchId, loc: GridLocation) {
+    fn spawn_robot(&mut self, robot: Robot, mid: MatchId, loc: GridLocation) {
         let card = self.spawn((
             mid,
-            Name::new(card.name.to_string()),
-            Health(card.hp as i32),
-            Energy { current: card.starting_energy, max: card.max_energy },
-            Abilities(card.abilities.clone()),
-            BaseCard(card),
+            Name::new("Robot"),
+            Health(robot.hp as i32),
+            Attack(robot.attack as i32),
+            Abilities(robot.abilities.clone()),
+            BaseCard(robot),
             (loc, SpatialBundle::default()),
             NeedsMesh,
         ));

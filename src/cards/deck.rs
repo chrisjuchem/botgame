@@ -7,9 +7,9 @@ use crate::cards::{
 };
 
 // #[derive(Asset, TypePath)]
-#[derive(Serialize, Deserialize, Reflect)]
+#[derive(Serialize, Deserialize, Reflect, Debug, Clone)]
 pub struct Deck {
-    pub deck: Card,
+    pub deck: Vec<Card>,
 }
 
 // pub struct DeckLoader;
@@ -57,35 +57,5 @@ pub fn random_deck() -> Deck {
 }
 
 pub fn make_deck(cards: Vec<Card>) -> Deck {
-    Deck {
-        deck: Card {
-            name: "Command Center".to_string(),
-            summon_cost: Cost::FREE,
-            hp: 50,
-            abilities: cards
-                .into_iter()
-                .map(|card| Ability::Activated {
-                    effect: Effect::SummonCard { card },
-                    cost: AbilityCost::Derived { attribute: Attribute::SummonCost },
-                    target_rules: TargetRules {
-                        amount: TargetAmount::N { n: 1 },
-                        filter: TargetFilter::And(vec![
-                            TargetFilter::Friendly,
-                            TargetFilter::Unoccupied,
-                        ]),
-                    },
-                })
-                .chain(std::iter::once(Ability::Activated {
-                    effect: Effect::MultipleEffects { effects: vec![] },
-                    cost: AbilityCost::Static { cost: Cost::FREE },
-                    target_rules: TargetRules {
-                        amount: TargetAmount::N { n: 0 },
-                        filter: TargetFilter::Any,
-                    },
-                }))
-                .collect(),
-            max_energy: 10,
-            starting_energy: 3,
-        },
-    }
+    Deck { deck: cards }
 }
