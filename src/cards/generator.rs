@@ -37,13 +37,13 @@ fn random_effect_type() -> EffectType {
 
 pub fn random_card() -> Card {
     let mut abilities = vec![Ability::BASIC_ATTACK];
-    if rnd(4) < 2 {
-        abilities.push(random_ability());
-    }
-    abilities.push(random_passive_ability());
-    if rnd(3) < 2 {
-        abilities.push(random_passive_ability());
-    }
+    // if rnd(4) < 2 {
+    //     abilities.push(random_ability());
+    // }
+    // abilities.push(random_passive_ability());
+    // if rnd(3) < 2 {
+    //     abilities.push(random_passive_ability());
+    // }
 
     // let max_energy = abilities
     //     .iter()
@@ -64,12 +64,12 @@ pub fn random_card() -> Card {
     }
 }
 
-pub fn random_ability() -> Ability {
-    match rnd(100) {
-        // 0..80 => random_active_ability(),
-        _ => random_passive_ability(),
-    }
-}
+// pub fn random_ability() -> Ability {
+//     match rnd(100) {
+//         // 0..80 => random_active_ability(),
+//         // _ => random_passive_ability(),
+//     }
+// }
 
 // fn random_active_ability() -> Ability {
 //     let (effect, target_rules) = match rnd(100) {
@@ -94,20 +94,20 @@ pub fn random_ability() -> Ability {
 //     Ability::Activated { effect, cost, target_rules }
 // }
 
-fn random_passive_ability() -> Ability {
-    let (passive_effect, target_filter) = match rnd(100) {
-        _ => {
-            let effect = PassiveEffect::DamageResistance {
-                effect_type: random_effect_type(),
-                factor: if rnd(2) == 1 { 0.5 } else { 2.0 },
-            };
-            let target_filter = TargetFilter::ThisUnit;
-            (effect, target_filter)
-        },
-    };
-
-    Ability::Passive(PassiveAbility { passive_effect, target_filter })
-}
+// fn random_passive_ability() -> Ability {
+//     let (passive_effect, target_filter) = match rnd(100) {
+//         _ => {
+//             let effect = PassiveEffect::DamageResistance {
+//                 effect_type: random_effect_type(),
+//                 factor: if rnd(2) == 1 { 0.5 } else { 2.0 },
+//             };
+//             let target_filter = TargetFilter::ThisUnit;
+//             (effect, target_filter)
+//         },
+//     };
+//
+//     Ability::Passive(PassiveAbility { passive_effect, target_filter })
+// }
 
 fn random_name() -> String {
     let mut rng = thread_rng();

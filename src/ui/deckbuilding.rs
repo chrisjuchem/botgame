@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
-use crate::cards::deck::{random_deck, Deck};
+use crate::cards::deck::{random_deck, Decklist};
 
 #[derive(Resource, Reflect)]
-pub struct CustomDeck(pub Deck);
+pub struct CustomDeck(pub Decklist);
 
 pub struct DeckbuildingPlugin;
 impl Plugin for DeckbuildingPlugin {

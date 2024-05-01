@@ -15,7 +15,7 @@ use crate::{
     ui::game_scene::{GRID_H, GRID_W},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub struct Card {
     pub name: String,
     pub ability: ActivatedAbility,
@@ -29,7 +29,7 @@ impl Card {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub struct Robot {
     pub size: u32,
     pub attack: u32,
@@ -37,13 +37,13 @@ pub struct Robot {
     pub abilities: Vec<Ability>, // name + abilityData ??
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(no_field_bounds)]
 pub enum Ability {
     Activated(ActivatedAbility),
     Passive(PassiveAbility),
 }
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(no_field_bounds)]
 pub struct ActivatedAbility {
     pub effect: Effect,
@@ -66,7 +66,7 @@ impl ActivatedAbility {
         }
     }
 }
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(no_field_bounds)]
 pub struct PassiveAbility {
     pub passive_effect: PassiveEffect,
@@ -88,7 +88,7 @@ impl Ability {
     }
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub struct Cost {
     pub energy: u32,
 }
@@ -96,7 +96,7 @@ impl Cost {
     pub const FREE: Cost = Cost { energy: 0 };
 }
 
-#[derive(Copy, Clone, Debug, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub enum Attribute {
     Size,
     Attack,
@@ -123,7 +123,7 @@ impl Attribute {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Reflect, Debug)]
+#[derive(Clone, Serialize, Eq, PartialEq, Deserialize, Reflect, Debug)]
 pub enum AbilityCost {
     Static { cost: Cost },
     Derived { attribute: Attribute },
@@ -144,7 +144,7 @@ impl AbilityCost {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(no_field_bounds)]
 pub enum Effect {
     Attack,
@@ -163,16 +163,16 @@ pub enum Effect {
     DestroyCard,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub enum PassiveEffect {
-    DamageResistance { effect_type: EffectType, factor: f32 },
+    // DamageResistance { effect_type: EffectType, factor: f32 },
     WhenHit { effect: Effect, target_rules: ImplicitTargetRules },
     WhenDies { effect: Effect, target_rules: ImplicitTargetRules },
     // ModifySummonCost
     // ModifyAbilityCost ??
 }
 
-#[derive(Debug, Copy, Clone, Serialize, Deserialize, Eq, PartialEq, Reflect)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub enum EffectType {
     Physical,
     Explosion,
@@ -180,14 +180,14 @@ pub enum EffectType {
     Electrical,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub enum ImplicitTargetRules {
     ThisUnit,
     ThatUnit,
     // AttackingUnit,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub struct TargetRules {
     pub amount: TargetAmount,
     pub filter: TargetFilter,
@@ -235,7 +235,7 @@ impl TargetRules {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 pub enum TargetAmount {
     All,
     N { n: usize },
@@ -251,7 +251,7 @@ impl TargetAmount {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Reflect)]
+#[derive(Debug, Clone, Eq, PartialEq, Serialize, Deserialize, Reflect)]
 #[reflect(no_field_bounds)]
 pub enum TargetFilter {
     Any,

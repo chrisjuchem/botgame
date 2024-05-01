@@ -90,9 +90,9 @@ impl Effect {
 impl PassiveEffect {
     pub fn full_text(&self, target_str: String) -> String {
         match self {
-            PassiveEffect::DamageResistance { effect_type, factor } => {
-                format!("{target_str} takes {factor}x damage from {effect_type} attacks.")
-            },
+            // PassiveEffect::DamageResistance { effect_type, factor } => {
+            //     format!("{target_str} takes {factor}x damage from {effect_type} attacks.")
+            // },
             PassiveEffect::WhenHit { effect, target_rules } => {
                 format!("Whenever a {target_str} is hit, {}", effect.full_text(target_rules.text()))
             },

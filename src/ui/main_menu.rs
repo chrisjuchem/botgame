@@ -69,7 +69,7 @@ pub fn spawn_main_menu(
                               decks: Res<Decks>| {
                             client.send(JoinMatchmakingQueueMessage {
                                 player_name: "player".to_string(),
-                                deck: decks.0.get(&name).unwrap().clone(),
+                                decklist: decks.0.get(&name).unwrap().clone(),
                             });
                             for mut btn in &mut btns {
                                 btn.active = false;

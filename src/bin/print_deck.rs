@@ -1,14 +1,14 @@
 use std::vec;
 
 use botgame::cards::{
-    deck::{make_deck, random_deck, Deck},
+    deck::{make_deck, random_deck, Decklist},
     generator::random_card,
     Ability, AbilityCost, Card, Cost, Effect,
     Effect::MultipleEffects,
     EffectType, ImplicitTargetRules, PassiveEffect, TargetAmount, TargetFilter, TargetRules,
 };
 
-fn aoe_deck() -> Deck {
+fn aoe_deck() -> Decklist {
     let deck = vec![
         Card {
             name: "Shrapnel Bot".to_string(),
@@ -89,7 +89,7 @@ fn aoe_deck() -> Deck {
     make_deck(deck)
 }
 
-pub fn gigablaster_deck() -> Deck {
+pub fn gigablaster_deck() -> Decklist {
     let deck = vec![
         Card {
             name: "GIGABLASTER".to_string(),

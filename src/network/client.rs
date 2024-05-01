@@ -16,9 +16,14 @@ use extension_trait::extension_trait;
 use serde::Deserialize;
 
 use crate::{
-    match_sim::{EffectEvent, NewTurnEvent, StartMatchEvent, Us},
+    match_sim::{
+        events::{AddCardToDeckEvent, DrawCardEvent, EffectEvent, NewTurnEvent, StartMatchEvent},
+        Us,
+    },
     network::{
-        messages::{EffectMessage, NetworkMessage, NewTurnMessage, ProtocolErrorMessage},
+        messages::{
+            DrawCardMessage, EffectMessage, NetworkMessage, NewTurnMessage, ProtocolErrorMessage,
+        },
         PORT,
     },
 };
@@ -88,6 +93,8 @@ fn read_messages(
     mut client: ResMut<RenetClient>,
     mut start_match: EventWriter<StartMatchEvent>,
     mut effects: EventWriter<EffectEvent>,
+    mut add_card: EventWriter<AddCardToDeckEvent>,
+    mut draw_card: EventWriter<DrawCardEvent>,
     mut turns: EventWriter<NewTurnEvent>,
     mut commands: Commands,
 ) {
@@ -100,6 +107,20 @@ fn read_messages(
             },
             NetworkMessage::EffectMessage(EffectMessage { match_id, effect, targets, source }) => {
                 effects.send(EffectEvent { match_id, effect, targets, source });
+            },
+            NetworkMessage::AddCardToDeckMessage(data) => {
+                add_card.send(AddCardToDeckEvent {
+                    match_id: data.match_id,
+                    player_id: data.player_id,
+                    card: data.card.clone(),
+                });
+            },
+            NetworkMessage::DrawCardMessage(data) => {
+                draw_card.send(DrawCardEvent {
+                    match_id: data.match_id,
+                    player_id: data.player_id,
+                    card: data.card.clone(),
+                });
             },
             NetworkMessage::NewTurnMessage(NewTurnMessage { match_id, next_player }) => {
                 turns.send(NewTurnEvent { match_id, next_player });

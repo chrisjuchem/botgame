@@ -7,9 +7,9 @@ use crate::cards::{
 };
 
 // #[derive(Asset, TypePath)]
-#[derive(Serialize, Deserialize, Reflect, Debug, Clone)]
-pub struct Deck {
-    pub deck: Vec<Card>,
+#[derive(Serialize, Deserialize, Reflect, Debug, Clone, Component)]
+pub struct Decklist {
+    pub cards: Vec<Card>,
 }
 
 // pub struct DeckLoader;
@@ -38,7 +38,7 @@ pub struct Deck {
 // }
 
 #[derive(Resource, Default)]
-pub struct Decks(pub HashMap<String, Deck>);
+pub struct Decks(pub HashMap<String, Decklist>);
 
 pub fn load_decks(mut decks: ResMut<Decks>) {
     for file in std::fs::read_dir("assets/decks").unwrap() {
@@ -52,10 +52,10 @@ pub fn load_decks(mut decks: ResMut<Decks>) {
     decks.0.insert("Random".to_string(), random_deck());
 }
 
-pub fn random_deck() -> Deck {
+pub fn random_deck() -> Decklist {
     make_deck((0..5).map(|_| random_card()).collect())
 }
 
-pub fn make_deck(cards: Vec<Card>) -> Deck {
-    Deck { deck: cards }
+pub fn make_deck(cards: Vec<Card>) -> Decklist {
+    Decklist { cards: cards }
 }

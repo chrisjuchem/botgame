@@ -10,7 +10,8 @@ use bevy_mod_picking::prelude::*;
 use crate::{
     cards::{Ability, ActivatedAbility},
     match_sim::{
-        Attack, BaseCard, Cards, CurrentTurn, GridLocation, Health, PlayerId, StartMatchEvent, Us,
+        events::StartMatchEvent, Attack, BaseCard, Cards, CurrentTurn, GridLocation, Health,
+        PlayerId, Us,
     },
     ui::{
         button::{ClickHandler, GameButton},

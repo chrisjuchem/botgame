@@ -25,8 +25,8 @@ pub fn price_passive_effect(passive_effect: &PassiveEffect, target_filter: &Targ
         _ => panic!("TODO: determine passive effect filter multipliers"),
     };
 
-    let base_price = match passive_effect {
-        PassiveEffect::DamageResistance { factor, .. } => -1. * factor.log2(),
+    let base_price: f32 = match passive_effect {
+        // PassiveEffect::DamageResistance { factor, .. } => -1. * factor.log2(),
         _ => panic!("TODO: determine passive effect prices"),
     };
 

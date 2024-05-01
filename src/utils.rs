@@ -1,10 +1,22 @@
 use std::fmt::Formatter;
 
-#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq)]
+use bevy::{
+    ecs::{
+        schedule::{Chain, SystemConfigs},
+        system::BoxedSystem,
+    },
+    prelude::{IntoSystem, IntoSystemConfigs, Reflect},
+};
+
+#[derive(Debug, Copy, Clone, Hash, Eq, PartialEq, Reflect)]
 pub struct Uuid(bevy::utils::Uuid);
 impl Uuid {
     pub fn new() -> Self {
         Self(bevy::utils::Uuid::new_v4())
+    }
+
+    pub fn new_blank() -> Self {
+        Self(bevy::utils::Uuid::nil())
     }
 }
 
@@ -86,5 +98,27 @@ where
             joined.push_str(part.as_ref());
         }
         joined
+    }
+}
+
+pub struct OrderedSystemList(Vec<BoxedSystem>);
+impl OrderedSystemList {
+    pub fn new() -> Self {
+        Self(vec![])
+    }
+
+    pub fn push<M>(&mut self, sys: impl IntoSystem<(), (), M>) -> &mut Self {
+        self.0.push(Box::new(IntoSystem::into_system(sys)));
+        self
+    }
+}
+
+impl IntoSystemConfigs<()> for OrderedSystemList {
+    fn into_configs(self) -> SystemConfigs {
+        SystemConfigs::Configs {
+            configs: self.0.into_iter().map(IntoSystemConfigs::into_configs).collect(),
+            collective_conditions: vec![],
+            chained: Chain::Yes,
+        }
     }
 }

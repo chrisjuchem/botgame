@@ -20,15 +20,16 @@ use bevy_renet::{
 use extension_trait::extension_trait;
 
 use crate::{
-    cards::{deck::Deck, Ability, ActivatedAbility, Card, Effect},
+    cards::{deck::Decklist, Ability, ActivatedAbility, Card, Effect},
     match_sim::{
-        Cards, CurrentTurn, EffectEvent, GridLocation, MatchId, NewTurnEvent, OwnerIndex, PlayerId,
-        StartMatchEvent,
+        events::{AddCardToDeckEvent, DrawCardEvent, EffectEvent, NewTurnEvent, StartMatchEvent},
+        Cards, CurrentTurn, GridLocation, MatchId, OwnerIndex, PlayerId, UnplayedCard,
     },
     network::{
         messages::{
-            ActivateAbilityMessage, EffectMessage, JoinMatchmakingQueueMessage,
-            MatchStartedMessage, NetworkMessage, NewTurnMessage, ProtocolErrorMessage,
+            ActivateAbilityMessage, AddCardToDeckMessage, DrawCardMessage, EffectMessage,
+            JoinMatchmakingQueueMessage, MatchStartedMessage, NetworkMessage, NewTurnMessage,
+            ProtocolErrorMessage,
         },
         PORT,
     },
@@ -60,7 +61,15 @@ impl Plugin for ServerPlugin {
         app.add_systems(PreUpdate, matchmaking.run_if(resource_changed::<MMQueue>));
         app.add_systems(
             Update,
-            (process_abilities, send_match_start, send_effects, send_turn_change).chain(),
+            (
+                process_abilities,
+                send_match_start,
+                send_add_card,
+                send_draw_card,
+                send_effects,
+                send_turn_change,
+            )
+                .chain(),
         );
     }
 }
@@ -73,7 +82,7 @@ struct MatchClientMap(HashMap<MatchId, Vec<ClientId>>);
 #[derive(Resource, Default)]
 struct MMQueue(HashMap<ClientId, QueueInfo>);
 struct QueueInfo {
-    deck: Deck,
+    decklist: Decklist,
     player_name: String,
 }
 
@@ -130,11 +139,11 @@ fn read_messages(
         while let Some(msg) = server.next(client_id) {
             match msg {
                 NetworkMessage::JoinMatchmakingQueueMessage(JoinMatchmakingQueueMessage {
-                    deck,
+                    decklist: deck,
                     player_name,
                 }) => match mm_queue.0.entry(*client_id) {
                     Entry::Vacant(e) => {
-                        e.insert(QueueInfo { player_name, deck: deck.clone() });
+                        e.insert(QueueInfo { player_name, decklist: deck.clone() });
                     },
                     Entry::Occupied(_) => {
                         server.send_error(client_id, "already in queue".to_string());
@@ -178,21 +187,12 @@ fn matchmaking(
             let pid = PlayerId::new();
             clients.0.insert(client_id, Some(pid));
             match_map.0.entry(match_id).or_insert(vec![]).push(client_id);
-            (pid, Some(info.deck))
+            (pid, info.decklist)
         })
         .collect::<Vec<_>>();
     *mm_queue = MMQueue(i.collect());
 
-    // for (pid, card) in &mut players {
-    //     effects.send(EffectEvent {
-    //         match_id,
-    //         effect: Effect::SummonCard { card: card.take().unwrap() },
-    //         targets: vec![GridLocation { owner: *pid, coord: UVec2::new(0, 2) }],
-    //     });
-    // }
-
-    let players = players.into_iter().map(|(pid, _)| pid).collect::<Vec<_>>();
-    let p1 = players[0]; //todo random
+    let p1 = players[0].0; //todo random
     start_match.send(StartMatchEvent { match_id, players });
     start_turn.send(NewTurnEvent { match_id, next_player: p1 });
 }
@@ -209,6 +209,46 @@ fn send_match_start(
                 match_id: *match_id,
                 players: players.clone(),
                 you: player_map.0.get(client_id).unwrap().unwrap(),
+            })
+        }
+    }
+}
+
+fn send_add_card(
+    mut e: EventReader<AddCardToDeckEvent>,
+    mut server: ResMut<RenetServer>,
+    client_map: Res<MatchClientMap>,
+    player_map: Res<ConnectedClients>,
+) {
+    for AddCardToDeckEvent { match_id, player_id, card } in e.read() {
+        for client_id in client_map.0.get(match_id).unwrap() {
+            let pid = player_map.0.get(client_id).unwrap().unwrap();
+            let card = if &pid == player_id { card.clone() } else { UnplayedCard::Unknown };
+
+            server.send(client_id, AddCardToDeckMessage {
+                match_id: *match_id,
+                player_id: *player_id,
+                card,
+            })
+        }
+    }
+}
+
+fn send_draw_card(
+    mut e: EventReader<DrawCardEvent>,
+    mut server: ResMut<RenetServer>,
+    client_map: Res<MatchClientMap>,
+    player_map: Res<ConnectedClients>,
+) {
+    for DrawCardEvent { match_id, player_id, card } in e.read() {
+        for client_id in client_map.0.get(match_id).unwrap() {
+            let pid = player_map.0.get(client_id).unwrap().unwrap();
+            let card = if &pid == player_id { card.clone() } else { UnplayedCard::Unknown };
+
+            server.send(client_id, DrawCardMessage {
+                match_id: *match_id,
+                player_id: *player_id,
+                card,
             })
         }
     }

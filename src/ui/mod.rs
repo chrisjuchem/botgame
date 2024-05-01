@@ -17,7 +17,7 @@ use crate::{
         deck::{load_decks, Decks},
         mesh::spawn_card_mesh,
     },
-    match_sim::StartMatchEvent,
+    match_sim::events::StartMatchEvent,
     ui::{
         button::update_buttons,
         deckbuilding::DeckbuildingPlugin,
